@@ -1,0 +1,219 @@
+# /config/packages/witgoed_dashboard.yaml
+# Versie 2.0 - Geoptimaliseerd
+
+witgoed_management:
+  
+  # -- HELPERS --
+  # Deze helpers worden gebruikt om de status van de wachtrij en blokkering bij te houden.
+  input_boolean:
+    wasmachine_wachtrij:
+      name: "Wasmachine in Wachtrij"
+      icon: mdi:washing-machine-alert
+      
+    droogkast_wachtrij:
+      name: "Droogkast in Wachtrij"
+      icon: mdi:tumble-dryer-alert
+      
+    vaatwasser_wachtrij:
+      name: "Vaatwasser in Wachtrij"
+      icon: mdi:dishwasher-alert
+      
+    piek_blokkering:
+      name: "Piek Tarief Blokkering"
+      icon: mdi:flash-alert
+
+  # Instelling voor de maximale capaciteit van het huis.
+  input_number:
+    max_house_power:
+      name: "Maximum Huis Vermogen"
+      min: 3000
+      max: 8000
+      step: 100
+      unit_of_measurement: "W"
+      icon: mdi:gauge
+
+  # -- SENSOREN --
+  # Deze sensoren geven real-time inzicht in de energiesituatie.
+  template:
+    - sensor:
+        - name: "Beschikbare Capaciteit"
+          unique_id: beschikbare_capaciteit
+          unit_of_measurement: "W"
+          icon: mdi:gauge-empty
+          state: >
+            {% set max_power = states('input_number.max_house_power') | float(4500) %}
+            {% set current_power = states('sensor.eth_dongle_pro_power_delivered') | float(0) %}
+            {{ (max_power - current_power) | round(0) }}
+          
+        - name: "Capaciteit Percentage"
+          unique_id: capaciteit_percentage
+          unit_of_measurement: "%"
+          icon: mdi:percent-outline
+          state: >
+            {% set max_power = states('input_number.max_house_power') | float(4500) %}
+            {% set current_power = states('sensor.eth_dongle_pro_power_delivered') | float(0) %}
+            {% if max_power > 0 %}
+              {{ ((current_power / max_power) * 100) | round(1) }}
+            {% else %}
+              0
+            {% endif %}
+            
+        - name: "Kan Nieuw Apparaat Starten"
+          unique_id: kan_nieuw_apparaat_starten # De dubbele sensor is verwijderd. Dit is de correcte.
+          icon: >
+            {% if is_state('sensor.kan_nieuw_apparaat_starten', 'ja') %}
+              mdi:check-circle-outline
+            {% else %}
+              mdi:alert-circle-outline
+            {% endif %}
+          state: >
+            {% set beschikbaar = states('sensor.beschikbare_capaciteit') | float(0) %}
+            # Bepaal het hoogst nodige vermogen van de apparaten die in auto-modus staan.
+            {% set hoogste_apparaat = [
+              states('input_number.washing_machine_power_usage') | float(2200),
+              states('input_number.dryer_power_usage') | float(2400),
+              states('input_number.dishwasher_power_usage') | float(2100)
+            ] | max %}
+            {{ 'ja' if beschikbaar > hoogste_apparaat else 'nee' }}
+
+  # -- AUTOMATISERINGEN --
+  # De logica die de apparaten slim aanstuurt.
+  automation:
+    - id: witgoed_piek_blokkering_beheren
+      alias: "Witgoed - Piek Blokkering Beheren"
+      description: "Activeert/deactiveert de piek-blokkering en plaatst apparaten in de wachtrij."
+      trigger:
+        - platform: state
+          entity_id: input_select.electricity_tariff_block # Aanname dat deze entiteit je tarief aangeeft
+          to: 
+            - "piek"
+            - "dal"
+            - "superdal"
+      action:
+        - choose:
+            - conditions:
+                - condition: trigger
+                  to: "piek"
+              sequence:
+                - service: input_boolean.turn_on
+                  target:
+                    entity_id: input_boolean.piek_blokkering
+                - service: notify.persistent_notification
+                  data:
+                    title: "⚡ PIEK TARIEF ACTIEF"
+                    message: "Automatisch starten van witgoed is geblokkeerd."
+                    notification_id: "tarief_status" # ID om notificatie te kunnen overschrijven
+                # Voeg apparaten die 'klaarstaan' toe aan de wachtrij
+                - if:
+                    - condition: state
+                      entity_id: input_boolean.washing_machine_auto_mode
+                      state: "on"
+                  then:
+                    - service: input_boolean.turn_on
+                      target:
+                        entity_id: input_boolean.wasmachine_wachtrij
+                - if:
+                    - condition: state
+                      entity_id: input_boolean.dryer_auto_mode
+                      state: "on"
+                  then:
+                    - service: input_boolean.turn_on
+                      target:
+                        entity_id: input_boolean.droogkast_wachtrij
+                - if:
+                    - condition: state
+                      entity_id: input_boolean.dishwasher_auto_mode
+                      state: "on"
+                  then:
+                    - service: input_boolean.turn_on
+                      target:
+                        entity_id: input_boolean.vaatwasser_wachtrij
+            - conditions:
+                - condition: trigger
+                  to: 
+                    - "dal"
+                    - "superdal"
+              sequence:
+                - service: input_boolean.turn_off
+                  target:
+                    entity_id: input_boolean.piek_blokkering
+                - service: notify.persistent_notification
+                  data:
+                    title: "✅ DAL TARIEF ACTIEF"
+                    message: "Wachtrij wordt verwerkt zodra er capaciteit is."
+                    notification_id: "tarief_status"
+
+    - id: witgoed_wachtrij_verwerken
+      alias: "Witgoed - Verwerk Wachtrij"
+      description: "Start apparaten uit de wachtrij zodra het kan (dal-tarief en genoeg capaciteit)."
+      trigger:
+        # Trigger 1: Als het tarief gunstig wordt
+        - platform: state
+          entity_id: input_select.electricity_tariff_block
+          to: 
+            - "dal"
+            - "superdal"
+        # Trigger 2 (NIEUW): Als er genoeg capaciteit vrijkomt
+        - platform: state
+          entity_id: sensor.kan_nieuw_apparaat_starten
+          to: "ja"
+      condition:
+        # Draai alleen als AAN alle voorwaarden is voldaan
+        - condition: and
+          conditions:
+            - condition: state
+              entity_id: input_boolean.piek_blokkering
+              state: "off" # Het mag geen piek tarief zijn
+            - condition: state
+              entity_id: sensor.kan_nieuw_apparaat_starten
+              state: "ja" # Er moet genoeg capaciteit zijn
+            - condition: or # Er moet minstens één apparaat in de wachtrij staan
+              conditions:
+                - condition: state
+                  entity_id: input_boolean.vaatwasser_wachtrij
+                  state: "on"
+                - condition: state
+                  entity_id: input_boolean.wasmachine_wachtrij
+                  state: "on"
+                - condition: state
+                  entity_id: input_boolean.droogkast_wachtrij
+                  state: "on"
+      action:
+        # Verwerk de wachtrij met prioriteit (eerst vaatwasser, dan wasmachine, etc.)
+        - choose:
+            - conditions: # Prioriteit 1: Vaatwasser
+                - condition: state
+                  entity_id: input_boolean.vaatwasser_wachtrij
+                  state: "on"
+              sequence:
+                - service: switch.turn_on
+                  target:
+                    entity_id: switch.vaatwas
+                - service: input_boolean.turn_off
+                  target:
+                    entity_id: input_boolean.vaatwasser_wachtrij
+                - service: notify.persistent_notification
+                  data:
+                    title: "🍽️ Vaatwasser Gestart"
+                    message: "Automatisch gestart vanuit de wachtrij."
+        # Wacht even om het stroomverbruik te laten stabiliseren voordat het volgende apparaat wordt geëvalueerd
+        - delay:
+            seconds: 10
+        # Her-evalueer en start eventueel het volgende apparaat
+        - if: # Prioriteit 2: Wasmachine
+            - condition: state
+              entity_id: input_boolean.wasmachine_wachtrij
+              state: "on"
+            - '{{ states("sensor.beschikbare_capaciteit") | float(0) > states("input_number.washing_machine_power_usage") | float(2200) }}'
+          then:
+            - service: switch.turn_on
+              target:
+                entity_id: switch.metered_wall_plug_switch
+            - service: input_boolean.turn_off
+              target:
+                entity_id: input_boolean.wasmachine_wachtrij
+            - service: notify.persistent_notification
+              data:
+                title: "🧺 Wasmachine Gestart"
+                message: "Automatisch gestart vanuit de wachtrij."
+      mode: single # Zorgt ervoor dat de automatisering niet meerdere keren tegelijk draait

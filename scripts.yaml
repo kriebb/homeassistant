@@ -1,0 +1,112 @@
+evohome_away_mode:
+  alias: "Set Evohome Away"
+  icon: mdi:home-export-outline
+  mode: single
+  sequence:
+    - action: evohome.set_system_mode
+      data:
+        mode: Away
+        period: 
+          days: 1
+
+evohome_home_mode:
+  alias: "Set Evohome Home"
+  icon: mdi:home-import-outline
+  mode: single
+  sequence:
+    - action: evohome.set_system_mode
+      data:
+        mode: Auto
+
+evohome_eco_mode:
+  alias: "Set Evohome Eco"
+  icon: mdi:leaf
+  mode: single
+  sequence:
+    - action: evohome.set_system_mode
+      data:
+        mode: AutoWithEco
+        duration:
+          hours: 4
+
+evohome_guest_mode:
+  alias: "Evohome Guest Mode"
+  icon: mdi:account-multiple
+  mode: single
+  sequence:
+    - action: evohome.set_zone_override
+      target:
+        entity_id: climate.living_room
+      data:
+        setpoint: 18
+        duration:
+          hours: 6
+    - action: evohome.set_zone_override
+      target:
+        entity_id: climate.bedroom
+      data:
+        setpoint: 16
+        duration:
+          hours: 6
+
+evohome_boost_zone:
+  alias: "Boost Zone"
+  icon: mdi:fire
+  fields:
+    zone:
+      description: "Zone to boost"
+      example: "climate.living_room"
+    temperature:
+      description: "Target temperature"
+      example: 22
+    duration:
+      description: "Duration in hours"
+      example: 2
+  sequence:
+    - action: evohome.set_zone_override
+      target:
+        entity_id: "{{ zone }}"
+      data:
+        setpoint: "{{ temperature }}"
+        duration:
+          hours: "{{ duration }}"
+
+evohome_reset_all:
+  alias: "Reset All Zones to Schedule"
+  icon: mdi:refresh
+  mode: single
+  sequence:
+    - action: evohome.reset_system
+
+evohome_night_mode:
+  alias: "Set Night Temperatures"
+  icon: mdi:weather-night
+  mode: single
+  sequence:
+    - action: evohome.set_zone_override
+      target:
+        entity_id: climate.living_room
+      data:
+        setpoint: 18
+        duration:
+          hours: 8
+    - action: evohome.set_zone_override
+      target:
+        entity_id: climate.bedroom
+      data:
+        setpoint: 16
+        duration:
+          hours: 8
+
+evohome_morning_boost:
+  alias: "Morning Bathroom Boost"
+  icon: mdi:shower
+  mode: single
+  sequence:
+    - action: evohome.set_zone_override
+      target:
+        entity_id: climate.bathroom
+      data:
+        setpoint: 22
+        duration:
+          hours: 1

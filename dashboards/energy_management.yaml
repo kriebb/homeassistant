@@ -1,0 +1,489 @@
+# Energy Management Dashboard - Complete Redesign
+# Save as: /config/dashboards/energy_management.yaml
+
+views:
+  # ========================================
+  # VIEW 1: ENERGY OVERVIEW
+  # ========================================
+  - type: sections
+    path: overview
+    title: Energie Overzicht
+    icon: mdi:home-lightning-bolt
+    sections:
+      # Header with real-time status
+      - type: grid
+        cards:
+          - type: tile
+            entity: sensor.capaciteit_status
+            name: Capaciteit Status
+            state_content:
+              - state
+              - last-changed
+            color: state
+          - type: tile
+            entity: sensor.fluvius_tarief
+            name: Huidig Tarief
+            icon: mdi:cash-clock
+            state_content:
+              - state
+              - last-changed
+            color: state
+          - type: tile
+            entity: switch.wallbox_laden
+            name: Wallbox
+            icon: mdi:ev-station
+            state_content:
+              - state
+            tap_action:
+              action: toggle
+
+      # Main power gauge with context
+      - type: grid
+        cards:
+          - type: vertical-stack
+            cards:
+              - type: custom:mushroom-title-card
+                title: Huisverbruik
+                subtitle: Real-time monitoring
+              - type: gauge
+                entity: sensor.eth_dongle_pro_power_delivered
+                name: Totaal Verbruik
+                min: 0
+                max: 8000
+                needle: true
+                segments:
+                  - from: 0
+                    color: green
+                  - from: 4000
+                    color: yellow
+                  - from: 4200
+                    color: orange
+                  - from: 4400
+                    color: red
+              - type: custom:mushroom-chips-card
+                chips:
+                  - type: entity
+                    entity: sensor.beschikbaar_vermogen
+                    icon: mdi:flash-outline
+                    content: state
+                  - type: entity
+                    entity: input_number.max_house_power
+                    icon: mdi:speedometer
+                    content: state
+                  - type: entity
+                    entity: sensor.totaal_slimme_apparaten_verbruik
+                    icon: mdi:washing-machine
+                    content: state
+
+      # Appliance status grid
+      - type: grid
+        title: Apparaat Status
+        cards:
+          - type: custom:mushroom-entity-card
+            entity: sensor.vaatwasser_status
+            name: Vaatwasser
+            icon: mdi:dishwasher
+            icon_color: >
+              {% if is_state('sensor.vaatwasser_status', 'actief') %}
+                green
+              {% elif is_state('sensor.vaatwasser_status', 'standby') %}
+                yellow
+              {% else %}
+                grey
+              {% endif %}
+            tap_action:
+              action: navigate
+              navigation_path: /dashboard-energy/appliances
+          - type: custom:mushroom-entity-card
+            entity: sensor.wasmachine_status
+            name: Wasmachine
+            icon: mdi:washing-machine
+            icon_color: >
+              {% if is_state('sensor.wasmachine_status', 'actief') %}
+                green
+              {% elif is_state('sensor.wasmachine_status', 'standby') %}
+                yellow
+              {% else %}
+                grey
+              {% endif %}
+            tap_action:
+              action: navigate
+              navigation_path: /dashboard-energy/appliances
+          - type: custom:mushroom-entity-card
+            entity: sensor.droogkast_status
+            name: Droogkast
+            icon: mdi:tumble-dryer
+            icon_color: >
+              {% if is_state('sensor.droogkast_status', 'actief') %}
+                green
+              {% elif is_state('sensor.droogkast_status', 'standby') %}
+                yellow
+              {% else %}
+                grey
+              {% endif %}
+            tap_action:
+              action: navigate
+              navigation_path: /dashboard-energy/appliances
+
+      # Energy pricing and forecast
+      - type: grid
+        cards:
+          - type: vertical-stack
+            cards:
+              - type: custom:mushroom-title-card
+                title: Energie Tarieven
+                subtitle: Vandaag & morgen
+              - type: custom:apexcharts-card
+                header:
+                  show: false
+                graph_span: 48h
+                span:
+                  start: day
+                now:
+                  show: true
+                  label: Nu
+                series:
+                  - entity: sensor.wallbox_kristof_riebbels_energieprijs
+                    name: Prijs per kWh
+                    show:
+                      legend_value: false
+                    stroke_width: 2
+                    color: '#FFA500'
+                    data_generator: |
+                      return entity.attributes.forecast.map((entry) => {
+                        return [new Date(entry.datetime).getTime(), entry.value];
+                      });
+              - type: custom:mushroom-chips-card
+                chips:
+                  - type: template
+                    content: "Laagste: €{{ state_attr('sensor.wallbox_kristof_riebbels_energieprijs', 'min_price') }}"
+                    icon: mdi:arrow-down
+                    icon_color: green
+                  - type: template
+                    content: "Hoogste: €{{ state_attr('sensor.wallbox_kristof_riebbels_energieprijs', 'max_price') }}"
+                    icon: mdi:arrow-up
+                    icon_color: red
+
+  # ========================================
+  # VIEW 2: APPLIANCE CONTROL
+  # ========================================
+  - type: sections
+    path: appliances
+    title: Apparaten
+    icon: mdi:washing-machine
+    sections:
+      # Quick actions bar
+      - type: grid
+        cards:
+          - type: horizontal-stack
+            cards:
+              - type: custom:mushroom-template-card
+                primary: Alle Auto Modes
+                secondary: "{{ states.input_boolean | selectattr('entity_id', 'match', '.*_auto_mode') | selectattr('state', 'eq', 'on') | list | count }}/3 actief"
+                icon: mdi:robot
+                icon_color: >
+                  {% set on_count = states.input_boolean | selectattr('entity_id', 'match', '.*_auto_mode') | selectattr('state', 'eq', 'on') | list | count %}
+                  {% if on_count == 3 %}
+                    green
+                  {% elif on_count > 0 %}
+                    orange
+                  {% else %}
+                    grey
+                  {% endif %}
+                tap_action:
+                  action: call-service
+                  service: script.toggle_all_auto_modes
+
+      # Dishwasher section
+      - type: grid
+        title: 🍽️ Vaatwasser
+        cards:
+          - type: custom:stack-in-card
+            cards:
+              - type: custom:mushroom-entity-card
+                entity: switch.vaatwas
+                name: Vaatwasser
+                icon: mdi:dishwasher
+                layout: horizontal
+                tap_action:
+                  action: toggle
+                hold_action:
+                  action: more-info
+              - type: custom:mushroom-chips-card
+                chips:
+                  - type: entity
+                    entity: sensor.vaatwas_power
+                    icon: mdi:flash
+                  - type: entity
+                    entity: input_boolean.dishwasher_cycle_active
+                    content: >
+                      {% if is_state('input_boolean.dishwasher_cycle_active', 'on') %}
+                        Cyclus actief
+                      {% else %}
+                        Standby
+                      {% endif %}
+              - type: conditional
+                conditions:
+                  - entity: sensor.kan_vaatwasser_starten
+                    state: "no"
+                card:
+                  type: custom:mushroom-template-card
+                  primary: Onvoldoende capaciteit
+                  secondary: "Beschikbaar: {{ states('sensor.beschikbaar_vermogen') }}W / Nodig: {{ states('input_number.dishwasher_power_usage') }}W"
+                  icon: mdi:alert
+                  icon_color: red
+
+      # Washing machine section
+      - type: grid
+        title: 🧺 Wasmachine
+        cards:
+          - type: custom:stack-in-card
+            cards:
+              - type: custom:mushroom-entity-card
+                entity: switch.metered_wall_plug_switch
+                name: Wasmachine
+                icon: mdi:washing-machine
+                layout: horizontal
+                tap_action:
+                  action: toggle
+                hold_action:
+                  action: more-info
+              - type: custom:mushroom-chips-card
+                chips:
+                  - type: entity
+                    entity: sensor.metered_wall_plug_switch_power
+                    icon: mdi:flash
+                  - type: entity
+                    entity: input_boolean.washing_machine_cycle_active
+                    content: >
+                      {% if is_state('input_boolean.washing_machine_cycle_active', 'on') %}
+                        Cyclus actief
+                      {% else %}
+                        Standby
+                      {% endif %}
+              - type: conditional
+                conditions:
+                  - entity: input_boolean.washing_machine_interrupted
+                    state: "on"
+                card:
+                  type: custom:mushroom-template-card
+                  primary: Onderbroken door capaciteitslimiet
+                  secondary: Start automatisch wanneer mogelijk
+                  icon: mdi:pause
+                  icon_color: orange
+
+      # Dryer section
+      - type: grid
+        title: 🌀 Droogkast
+        cards:
+          - type: custom:stack-in-card
+            cards:
+              - type: custom:mushroom-entity-card
+                entity: switch.droogkast
+                name: Droogkast
+                icon: mdi:tumble-dryer
+                layout: horizontal
+                tap_action:
+                  action: toggle
+                hold_action:
+                  action: more-info
+              - type: custom:mushroom-chips-card
+                chips:
+                  - type: entity
+                    entity: sensor.droogkast_power
+                    icon: mdi:flash
+                  - type: entity
+                    entity: input_boolean.dryer_cycle_active
+                    content: >
+                      {% if is_state('input_boolean.dryer_cycle_active', 'on') %}
+                        Cyclus actief
+                      {% else %}
+                        Standby
+                      {% endif %}
+              - type: conditional
+                conditions:
+                  - entity: input_boolean.dryer_interrupted
+                    state: "on"
+                card:
+                  type: custom:mushroom-template-card
+                  primary: Onderbroken door capaciteitslimiet
+                  secondary: Start automatisch wanneer mogelijk
+                  icon: mdi:pause
+                  icon_color: orange
+
+  # ========================================
+  # VIEW 3: ANALYTICS & HISTORY
+  # ========================================
+  - type: sections
+    path: analytics
+    title: Analyse
+    icon: mdi:chart-line
+    sections:
+      # Power consumption timeline
+      - type: grid
+        cards:
+          - type: vertical-stack
+            cards:
+              - type: custom:mushroom-title-card
+                title: Verbruiksgeschiedenis
+                subtitle: Laatste 24 uur
+              - type: custom:apexcharts-card
+                graph_span: 24h
+                header:
+                  show: false
+                series:
+                  - entity: sensor.eth_dongle_pro_power_delivered
+                    name: Totaal
+                    stroke_width: 3
+                    color: '#FFA500'
+                  - entity: sensor.vaatwas_power
+                    name: Vaatwasser
+                    stroke_width: 2
+                    color: '#3498db'
+                  - entity: sensor.metered_wall_plug_switch_power
+                    name: Wasmachine
+                    stroke_width: 2
+                    color: '#2ecc71'
+                  - entity: sensor.droogkast_power
+                    name: Droogkast
+                    stroke_width: 2
+                    color: '#e74c3c'
+                yaxis:
+                  - min: 0
+                    max: 5000
+                    apex_config:
+                      tickAmount: 5
+
+      # Daily statistics
+      - type: grid
+        cards:
+          - type: custom:mushroom-title-card
+            title: Dagstatistieken
+          - type: horizontal-stack
+            cards:
+              - type: statistic
+                entity: sensor.eth_dongle_pro_power_delivered
+                name: Gem. Verbruik
+                stat_type: mean
+                period:
+                  hours: 24
+              - type: statistic
+                entity: sensor.eth_dongle_pro_power_delivered
+                name: Piek Verbruik
+                stat_type: max
+                period:
+                  hours: 24
+              - type: statistic
+                entity: sensor.totaal_slimme_apparaten_verbruik
+                name: Smart Apparaten
+                stat_type: mean
+                period:
+                  hours: 24
+
+      # Cost analysis
+      - type: grid
+        cards:
+          - type: vertical-stack
+            cards:
+              - type: custom:mushroom-title-card
+                title: Kosten Analyse
+                subtitle: Geschatte dagkosten
+              - type: custom:mini-graph-card
+                entities:
+                  - entity: sensor.daily_energy_cost
+                    name: Dagkosten
+                    color: '#FFA500'
+                hours_to_show: 168
+                aggregate_func: max
+                group_by: date
+                show:
+                  graph: bar
+                  state: true
+                  icon: false
+
+  # ========================================
+  # VIEW 4: SETTINGS
+  # ========================================
+  - type: sections
+    path: settings
+    title: Instellingen
+    icon: mdi:cog
+    sections:
+      # Capacity limits
+      - type: grid
+        title: Capaciteitslimieten
+        cards:
+          - type: entities
+            entities:
+              - entity: input_number.max_house_power
+                name: Maximum huisverbruik
+              - entity: input_number.capacity_warning_threshold
+                name: Waarschuwingsdrempel
+              - entity: input_number.capacity_critical_threshold
+                name: Kritieke drempel
+              - type: divider
+              - entity: input_boolean.capacity_protection_active
+                name: Capaciteitsbescherming
+
+      # Appliance settings
+      - type: grid
+        title: Apparaat Instellingen
+        cards:
+          - type: entities
+            title: Verwacht verbruik
+            entities:
+              - entity: input_number.dishwasher_power_usage
+                name: Vaatwasser
+              - entity: input_number.washing_machine_power_usage
+                name: Wasmachine
+              - entity: input_number.dryer_power_usage
+                name: Droogkast
+              - entity: input_number.appliance_standby_threshold
+                name: Standby drempel
+
+          - type: entities
+            title: Automatisch beheer
+            entities:
+              - entity: input_boolean.dishwasher_auto_mode
+                name: Vaatwasser
+              - entity: input_boolean.washing_machine_auto_mode
+                name: Wasmachine
+              - entity: input_boolean.dryer_auto_mode
+                name: Droogkast
+
+# Supporting scripts for the dashboard
+script:
+  toggle_all_auto_modes:
+    alias: Toggle alle auto modes
+    sequence:
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: >
+                  {{ states.input_boolean | selectattr('entity_id', 'match', '.*_auto_mode') | selectattr('state', 'eq', 'on') | list | count == 3 }}
+            sequence:
+              - service: input_boolean.turn_off
+                target:
+                  entity_id:
+                    - input_boolean.dishwasher_auto_mode
+                    - input_boolean.washing_machine_auto_mode
+                    - input_boolean.dryer_auto_mode
+        default:
+          - service: input_boolean.turn_on
+            target:
+              entity_id:
+                - input_boolean.dishwasher_auto_mode
+                - input_boolean.washing_machine_auto_mode
+                - input_boolean.dryer_auto_mode
+
+# Template sensor for daily cost (add to energy_management package)
+template:
+  - sensor:
+      - name: "Daily Energy Cost"
+        unique_id: daily_energy_cost
+        unit_of_measurement: "€"
+        state: >
+          {% set consumption = states('sensor.daily_energy_consumption') | float(0) %}
+          {% set price = states('sensor.wallbox_kristof_riebbels_energieprijs') | float(0.30) %}
+          {{ (consumption * price) | round(2) }}
+        icon: mdi:currency-eur

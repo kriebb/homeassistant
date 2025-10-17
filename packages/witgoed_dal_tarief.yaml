@@ -1,0 +1,309 @@
+# /config/packages/witgoed_dal_tarief.yaml
+# Blokkeert tijdens piek EN beheert capaciteit
+
+witgoed_dal_tarief:
+  input_boolean:
+    piek_blokkering:
+      name: Piek Blokkering Actief
+      initial: false
+      
+    wasmachine_wachtrij:
+      name: Wasmachine in Wachtrij
+      initial: false
+      
+    droogkast_wachtrij:
+      name: Droogkast in Wachtrij
+      initial: false
+      
+    vaatwasser_wachtrij:
+      name: Vaatwasser in Wachtrij
+      initial: false
+      
+  input_number:
+    max_capaciteit:
+      name: Max Capaciteit (Watt)
+      min: 2000
+      max: 6000
+      step: 100
+      initial: 4000
+      unit_of_measurement: W
+      
+    wasmachine_vermogen:
+      name: Wasmachine Vermogen
+      min: 0
+      max: 3000
+      initial: 2000
+      unit_of_measurement: W
+      
+    droogkast_vermogen:
+      name: Droogkast Vermogen
+      min: 0
+      max: 3000
+      initial: 2500
+      unit_of_measurement: W
+      
+    vaatwasser_vermogen:
+      name: Vaatwasser Vermogen
+      min: 0
+      max: 3000
+      initial: 1800
+      unit_of_measurement: W
+
+  template:
+    - sensor:
+        - name: "Witgoed Totaal Vermogen"
+          unit_of_measurement: "W"
+          state: >
+            {% set wasmachine = states('input_number.wasmachine_vermogen')|float if states('switch.wasmachine') == 'on' else 0 %}
+            {% set droogkast = states('input_number.droogkast_vermogen')|float if states('switch.droogkast') == 'on' else 0 %}
+            {% set vaatwasser = states('input_number.vaatwasser_vermogen')|float if states('switch.vaatwasser') == 'on' else 0 %}
+            {{ wasmachine + droogkast + vaatwasser }}
+            
+        - name: "Beschikbare Capaciteit"
+          unit_of_measurement: "W"
+          state: >
+            {{ states('input_number.max_capaciteit')|float - states('sensor.witgoed_totaal_vermogen')|float }}
+
+  automation:
+    # TARIEF MANAGEMENT
+    - alias: Piek Start 0700
+      trigger:
+        platform: time
+        at: "07:00:00"
+      action:
+        - service: input_boolean.turn_on
+          entity_id: input_boolean.piek_blokkering
+        - service: notify.notify
+          data:
+            message: "Piek tarief - nieuwe starts geblokkeerd"
+            
+    - alias: Piek Start 1700
+      trigger:
+        platform: time
+        at: "17:00:00"
+      action:
+        - service: input_boolean.turn_on
+          entity_id: input_boolean.piek_blokkering
+        - service: notify.notify
+          data:
+            message: "Piek tarief - nieuwe starts geblokkeerd"
+            
+    - alias: Dal Start 1100
+      trigger:
+        platform: time
+        at: "11:00:00"
+      action:
+        - service: input_boolean.turn_off
+          entity_id: input_boolean.piek_blokkering
+        - service: notify.notify
+          data:
+            message: "Dal tarief - witgoed kan starten"
+        - service: automation.trigger
+          entity_id: automation.check_wachtrij
+            
+    - alias: Dal Start 2200
+      trigger:
+        platform: time
+        at: "21:00:00"
+      action:
+        - service: input_boolean.turn_off
+          entity_id: input_boolean.piek_blokkering
+        - service: notify.notify
+          data:
+            message: "Dal tarief - witgoed kan starten"
+        - service: automation.trigger
+          entity_id: automation.check_wachtrij
+            
+    - alias: Super Dal Start 0100
+      trigger:
+        platform: time
+        at: "01:00:00"
+      action:
+        - service: input_boolean.turn_off
+          entity_id: input_boolean.piek_blokkering
+        - service: notify.notify
+          data:
+            message: "Super dal tarief - beste tijd!"
+        - service: automation.trigger
+          entity_id: automation.check_wachtrij
+            
+    # CAPACITEIT MANAGEMENT - WASMACHINE
+    - alias: Wasmachine Start Check
+      trigger:
+        platform: state
+        entity_id: switch.wasmachine
+        from: 'off'
+        to: 'on'
+      action:
+        - choose:
+            # Blokkeer tijdens piek
+            - conditions:
+                - condition: state
+                  entity_id: input_boolean.piek_blokkering
+                  state: 'on'
+              sequence:
+                - service: switch.turn_off
+                  entity_id: switch.wasmachine
+                - service: input_boolean.turn_on
+                  entity_id: input_boolean.wasmachine_wachtrij
+                - service: notify.notify
+                  data:
+                    message: "Wasmachine in wachtrij - piek tarief"
+            # Check capaciteit
+            - conditions:
+                - condition: template
+                  value_template: >
+                    {{ states('sensor.beschikbare_capaciteit')|float < states('input_number.wasmachine_vermogen')|float }}
+              sequence:
+                - service: switch.turn_off
+                  entity_id: switch.wasmachine
+                - service: input_boolean.turn_on
+                  entity_id: input_boolean.wasmachine_wachtrij
+                - service: notify.notify
+                  data:
+                    message: >
+                      Wasmachine in wachtrij - onvoldoende capaciteit 
+                      (Nodig: {{ states('input_number.wasmachine_vermogen') }}W, 
+                      Beschikbaar: {{ states('sensor.beschikbare_capaciteit') }}W)
+                      
+    # CAPACITEIT MANAGEMENT - DROOGKAST
+    - alias: Droogkast Start Check
+      trigger:
+        platform: state
+        entity_id: switch.droogkast
+        from: 'off'
+        to: 'on'
+      action:
+        - choose:
+            - conditions:
+                - condition: state
+                  entity_id: input_boolean.piek_blokkering
+                  state: 'on'
+              sequence:
+                - service: switch.turn_off
+                  entity_id: switch.droogkast
+                - service: input_boolean.turn_on
+                  entity_id: input_boolean.droogkast_wachtrij
+                - service: notify.notify
+                  data:
+                    message: "Droogkast in wachtrij - piek tarief"
+            - conditions:
+                - condition: template
+                  value_template: >
+                    {{ states('sensor.beschikbare_capaciteit')|float < states('input_number.droogkast_vermogen')|float }}
+              sequence:
+                - service: switch.turn_off
+                  entity_id: switch.droogkast
+                - service: input_boolean.turn_on
+                  entity_id: input_boolean.droogkast_wachtrij
+                - service: notify.notify
+                  data:
+                    message: >
+                      Droogkast in wachtrij - onvoldoende capaciteit
+                      
+    # CAPACITEIT MANAGEMENT - VAATWASSER
+    - alias: Vaatwasser Start Check
+      trigger:
+        platform: state
+        entity_id: switch.vaatwasser
+        from: 'off'
+        to: 'on'
+      action:
+        - choose:
+            - conditions:
+                - condition: state
+                  entity_id: input_boolean.piek_blokkering
+                  state: 'on'
+              sequence:
+                - service: switch.turn_off
+                  entity_id: switch.vaatwasser
+                - service: input_boolean.turn_on
+                  entity_id: input_boolean.vaatwasser_wachtrij
+                - service: notify.notify
+                  data:
+                    message: "Vaatwasser in wachtrij - piek tarief"
+            - conditions:
+                - condition: template
+                  value_template: >
+                    {{ states('sensor.beschikbare_capaciteit')|float < states('input_number.vaatwasser_vermogen')|float }}
+              sequence:
+                - service: switch.turn_off
+                  entity_id: switch.vaatwasser
+                - service: input_boolean.turn_on
+                  entity_id: input_boolean.vaatwasser_wachtrij
+                - service: notify.notify
+                  data:
+                    message: >
+                      Vaatwasser in wachtrij - onvoldoende capaciteit
+                      
+    # WACHTRIJ CHECKER - Start apparaten als er ruimte is
+    - alias: Check Wachtrij
+      trigger:
+        # Check als apparaat klaar is
+        - platform: state
+          entity_id: 
+            - switch.wasmachine
+            - switch.droogkast
+            - switch.vaatwasser
+          from: 'on'
+          to: 'off'
+          for: "00:00:10"
+        # Check elk half uur
+        - platform: time_pattern
+          minutes: "/30"
+      condition:
+        - condition: state
+          entity_id: input_boolean.piek_blokkering
+          state: 'off'
+      action:
+        # Start wasmachine als in wachtrij en capaciteit vrij
+        - choose:
+            - conditions:
+                - condition: state
+                  entity_id: input_boolean.wasmachine_wachtrij
+                  state: 'on'
+                - condition: template
+                  value_template: >
+                    {{ states('sensor.beschikbare_capaciteit')|float >= states('input_number.wasmachine_vermogen')|float }}
+              sequence:
+                - service: switch.turn_on
+                  entity_id: switch.wasmachine
+                - service: input_boolean.turn_off
+                  entity_id: input_boolean.wasmachine_wachtrij
+                - service: notify.notify
+                  data:
+                    message: "Wasmachine gestart - capaciteit beschikbaar"
+        # Start droogkast als in wachtrij en capaciteit vrij
+        - choose:
+            - conditions:
+                - condition: state
+                  entity_id: input_boolean.droogkast_wachtrij
+                  state: 'on'
+                - condition: template
+                  value_template: >
+                    {{ states('sensor.beschikbare_capaciteit')|float >= states('input_number.droogkast_vermogen')|float }}
+              sequence:
+                - service: switch.turn_on
+                  entity_id: switch.droogkast
+                - service: input_boolean.turn_off
+                  entity_id: input_boolean.droogkast_wachtrij
+                - service: notify.notify
+                  data:
+                    message: "Droogkast gestart - capaciteit beschikbaar"
+        # Start vaatwasser als in wachtrij en capaciteit vrij
+        - choose:
+            - conditions:
+                - condition: state
+                  entity_id: input_boolean.vaatwasser_wachtrij
+                  state: 'on'
+                - condition: template
+                  value_template: >
+                    {{ states('sensor.beschikbare_capaciteit')|float >= states('input_number.vaatwasser_vermogen')|float }}
+              sequence:
+                - service: switch.turn_on
+                  entity_id: switch.vaatwasser
+                - service: input_boolean.turn_off
+                  entity_id: input_boolean.vaatwasser_wachtrij
+                - service: notify.notify
+                  data:
+                    message: "Vaatwasser gestart - capaciteit beschikbaar"

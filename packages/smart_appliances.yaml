@@ -1,0 +1,447 @@
+# Home Assistant Package: Smart Appliances Management
+# Manages dishwasher, washing machine, and dryer with capacity protection
+
+# ========================================
+# INPUT NUMBERS - Power Settings
+# ========================================
+input_number:
+  # Dishwasher settings
+  dishwasher_power_usage:
+    name: "Vaatwasser verbruik (W)"
+    min: 1800
+    max: 2500
+    step: 50
+    initial: 2000
+    unit_of_measurement: "W"
+    icon: mdi:dishwasher
+
+  # Washing machine settings
+  washing_machine_power_usage:
+    name: "Wasmachine verbruik (W)"
+    min: 1500
+    max: 2500
+    step: 50
+    initial: 2200
+    unit_of_measurement: "W"
+    icon: mdi:washing-machine
+
+  # Dryer settings
+  dryer_power_usage:
+    name: "Droogkast verbruik (W)"
+    min: 2000
+    max: 3500
+    step: 50
+    initial: 2800
+    unit_of_measurement: "W"
+    icon: mdi:tumble-dryer
+
+  # General thresholds
+  appliance_standby_threshold:
+    name: "Standby drempelwaarde (W)"
+    min: 5
+    max: 50
+    step: 5
+    initial: 20
+    unit_of_measurement: "W"
+    icon: mdi:power-standby
+
+# ========================================
+# INPUT BOOLEANS - Mode Controls
+# ========================================
+input_boolean:
+  # Dishwasher controls
+  dishwasher_auto_mode:
+    name: "Vaatwasser automatisch beheer"
+    initial: true
+    icon: mdi:auto-mode
+
+  dishwasher_cycle_active:
+    name: "Vaatwasser cyclus actief"
+    initial: false
+    icon: mdi:dishwasher
+
+  # Washing machine controls
+  washing_machine_auto_mode:
+    name: "Wasmachine automatisch beheer"
+    initial: true
+    icon: mdi:auto-mode
+
+  washing_machine_cycle_active:
+    name: "Wasmachine cyclus actief"
+    initial: false
+    icon: mdi:washing-machine
+
+  # Dryer controls
+  dryer_auto_mode:
+    name: "Droogkast automatisch beheer"
+    initial: true
+    icon: mdi:auto-mode
+
+  dryer_cycle_active:
+    name: "Droogkast cyclus actief"
+    initial: false
+    icon: mdi:tumble-dryer
+
+# ========================================
+# TEMPLATE SENSORS
+# ========================================
+template:
+  - sensor:
+      # Dishwasher status
+      - name: "Vaatwasser status"
+        unique_id: dishwasher_status
+        state: >
+          {% set power = states('sensor.vaatwas_power') | float(0) %}
+          {% set threshold = states('input_number.appliance_standby_threshold') | float(20) %}
+          {% if power < 5 %}
+            uit
+          {% elif power < threshold %}
+            standby
+          {% else %}
+            actief
+          {% endif %}
+        icon: >
+          {% set power = states('sensor.vaatwas_power') | float(0) %}
+          {% set threshold = states('input_number.appliance_standby_threshold') | float(20) %}
+          {% if power < 5 %}
+            mdi:dishwasher-off
+          {% elif power < threshold %}
+            mdi:dishwasher
+          {% else %}
+            mdi:dishwasher
+          {% endif %}
+
+      # Washing machine status
+      - name: "Wasmachine status"
+        unique_id: washing_machine_status
+        state: >
+          {% set power = states('sensor.metered_wall_plug_switch_power') | float(0) %}
+          {% set threshold = states('input_number.appliance_standby_threshold') | float(20) %}
+          {% if power < 5 %}
+            uit
+          {% elif power < threshold %}
+            standby
+          {% else %}
+            actief
+          {% endif %}
+        icon: >
+          {% set power = states('sensor.metered_wall_plug_switch_power') | float(0) %}
+          {% set threshold = states('input_number.appliance_standby_threshold') | float(20) %}
+          {% if power < 5 %}
+            mdi:washing-machine-off
+          {% elif power < threshold %}
+            mdi:washing-machine
+          {% else %}
+            mdi:washing-machine
+          {% endif %}
+
+      # Dryer status
+      - name: "Droogkast status"
+        unique_id: dryer_status
+        state: >
+          {% set power = states('sensor.droogkast_power') | float(0) %}
+          {% set threshold = states('input_number.appliance_standby_threshold') | float(20) %}
+          {% if power < 5 %}
+            uit
+          {% elif power < threshold %}
+            standby
+          {% else %}
+            actief
+          {% endif %}
+        icon: >
+          {% set power = states('sensor.droogkast_power') | float(0) %}
+          {% set threshold = states('input_number.appliance_standby_threshold') | float(20) %}
+          {% if power < 5 %}
+            mdi:tumble-dryer-off
+          {% elif power < threshold %}
+            mdi:tumble-dryer
+          {% else %}
+            mdi:tumble-dryer
+          {% endif %}
+
+      # Capacity checks
+      - name: "Kan vaatwasser starten"
+        unique_id: dishwasher_can_start
+        state: >
+          {% set available = states('sensor.beschikbaar_vermogen') | float(0) %}
+          {% set needed = states('input_number.dishwasher_power_usage') | float(2000) %}
+          {{ 'yes' if available >= needed else 'no' }}
+        icon: mdi:check-circle-outline
+
+      - name: "Kan wasmachine starten"
+        unique_id: washing_machine_can_start
+        state: >
+          {% set available = states('sensor.beschikbaar_vermogen') | float(0) %}
+          {% set needed = states('input_number.washing_machine_power_usage') | float(2200) %}
+          {{ 'yes' if available >= needed else 'no' }}
+        icon: mdi:check-circle-outline
+
+      - name: "Kan droogkast starten"
+        unique_id: dryer_can_start
+        state: >
+          {% set available = states('sensor.beschikbaar_vermogen') | float(0) %}
+          {% set needed = states('input_number.dryer_power_usage') | float(2800) %}
+          {{ 'yes' if available >= needed else 'no' }}
+        icon: mdi:check-circle-outline
+
+# ========================================
+# AUTOMATIONS - DISHWASHER
+# ========================================
+automation:
+  - id: dishwasher_cycle_detection
+    alias: "Vaatwasser - Cyclus detectie"
+    description: "Detecteert wanneer vaatwasser van standby naar actieve cyclus gaat"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.vaatwas_power
+        above: input_number.appliance_standby_threshold
+        for: "00:00:30"
+    condition:
+      - condition: state
+        entity_id: switch.vaatwas
+        state: 'on'
+    action:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.dishwasher_cycle_active
+      - service: notify.persistent_notification
+        data:
+          title: "🔄 Vaatwasser cyclus gestart"
+          message: "Vaatwasser is begonnen met wassen ({{ states('sensor.vaatwas_power') }}W)"
+
+  - id: dishwasher_cycle_end_detection
+    alias: "Vaatwasser - Cyclus einde detectie"
+    description: "Detecteert wanneer vaatwasser cyclus eindigt"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.vaatwas_power
+        below: input_number.appliance_standby_threshold
+        for: "00:02:00"
+    condition:
+      - condition: state
+        entity_id: input_boolean.dishwasher_cycle_active
+        state: 'on'
+    action:
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.dishwasher_cycle_active
+      - service: notify.persistent_notification
+        data:
+          title: "✅ Vaatwasser cyclus voltooid"
+          message: "Vaatwasser cyclus is afgerond"
+
+  - id: dishwasher_startup_evaluation
+    alias: "Vaatwasser - Opstart evaluatie"
+    description: "Evalueert of vaatwasser mag starten op basis van beschikbare capaciteit"
+    trigger:
+      - platform: state
+        entity_id: switch.vaatwas
+        to: 'on'
+    condition:
+      - condition: state
+        entity_id: input_boolean.dishwasher_auto_mode
+        state: 'on'
+      - condition: state
+        entity_id: input_boolean.dishwasher_cycle_active
+        state: 'off'
+    action:
+      - delay: '00:00:05'
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: >
+                  {% set available = states('sensor.beschikbaar_vermogen') | float(0) %}
+                  {% set needed = states('input_number.dishwasher_power_usage') | float(2000) %}
+                  {{ available < needed }}
+            sequence:
+              - service: switch.turn_off
+                target:
+                  entity_id: switch.vaatwas
+              - service: notify.persistent_notification
+                data:
+                  title: "⚠️ Vaatwasser start geblokkeerd"
+                  message: >
+                    Onvoldoende capaciteit beschikbaar.
+                    Beschikbaar: {{ states('sensor.beschikbaar_vermogen') }}W
+                    Nodig: {{ states('input_number.dishwasher_power_usage') }}W
+        default:
+          - service: notify.persistent_notification
+            data:
+              title: "✅ Vaatwasser start toegestaan"
+              message: >
+                Voldoende capaciteit beschikbaar.
+                Beschikbaar: {{ states('sensor.beschikbaar_vermogen') }}W
+
+# ========================================
+# AUTOMATIONS - WASHING MACHINE
+# ========================================
+  - id: washing_machine_cycle_detection
+    alias: "Wasmachine - Cyclus detectie"
+    description: "Detecteert wanneer wasmachine van standby naar actieve cyclus gaat"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.metered_wall_plug_switch_power
+        above: input_number.appliance_standby_threshold
+        for: "00:00:30"
+    condition:
+      - condition: state
+        entity_id: switch.metered_wall_plug_switch
+        state: 'on'
+    action:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.washing_machine_cycle_active
+      - service: notify.persistent_notification
+        data:
+          title: "🧺 Wasmachine cyclus gestart"
+          message: "Wasmachine is begonnen met wassen ({{ states('sensor.metered_wall_plug_switch_power') }}W)"
+
+  - id: washing_machine_cycle_end_detection
+    alias: "Wasmachine - Cyclus einde detectie"
+    description: "Detecteert wanneer wasmachine cyclus eindigt"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.metered_wall_plug_switch_power
+        below: input_number.appliance_standby_threshold
+        for: "00:02:00"
+    condition:
+      - condition: state
+        entity_id: input_boolean.washing_machine_cycle_active
+        state: 'on'
+    action:
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.washing_machine_cycle_active
+      - service: notify.persistent_notification
+        data:
+          title: "✅ Wasmachine cyclus voltooid"
+          message: "Wasmachine cyclus is afgerond"
+
+  - id: washing_machine_startup_evaluation
+    alias: "Wasmachine - Opstart evaluatie"
+    description: "Evalueert of wasmachine mag starten op basis van beschikbare capaciteit"
+    trigger:
+      - platform: state
+        entity_id: switch.metered_wall_plug_switch
+        to: 'on'
+    condition:
+      - condition: state
+        entity_id: input_boolean.washing_machine_auto_mode
+        state: 'on'
+      - condition: state
+        entity_id: input_boolean.washing_machine_cycle_active
+        state: 'off'
+    action:
+      - delay: '00:00:05'
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: >
+                  {% set available = states('sensor.beschikbaar_vermogen') | float(0) %}
+                  {% set needed = states('input_number.washing_machine_power_usage') | float(2200) %}
+                  {{ available < needed }}
+            sequence:
+              - service: switch.turn_off
+                target:
+                  entity_id: switch.metered_wall_plug_switch
+              - service: notify.persistent_notification
+                data:
+                  title: "⚠️ Wasmachine start geblokkeerd"
+                  message: >
+                    Onvoldoende capaciteit beschikbaar.
+                    Beschikbaar: {{ states('sensor.beschikbaar_vermogen') }}W
+                    Nodig: {{ states('input_number.washing_machine_power_usage') }}W
+        default:
+          - service: notify.persistent_notification
+            data:
+              title: "✅ Wasmachine start toegestaan"
+              message: >
+                Voldoende capaciteit beschikbaar.
+                Beschikbaar: {{ states('sensor.beschikbaar_vermogen') }}W
+
+# ========================================
+# AUTOMATIONS - DRYER
+# ========================================
+  - id: dryer_cycle_detection
+    alias: "Droogkast - Cyclus detectie"
+    description: "Detecteert wanneer droogkast van standby naar actieve cyclus gaat"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.droogkast_power
+        above: input_number.appliance_standby_threshold
+        for: "00:00:30"
+    condition:
+      - condition: state
+        entity_id: switch.droogkast
+        state: 'on'
+    action:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.dryer_cycle_active
+      - service: notify.persistent_notification
+        data:
+          title: "🌀 Droogkast cyclus gestart"
+          message: "Droogkast is begonnen met drogen ({{ states('sensor.droogkast_power') }}W)"
+
+  - id: dryer_cycle_end_detection
+    alias: "Droogkast - Cyclus einde detectie"
+    description: "Detecteert wanneer droogkast cyclus eindigt"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.droogkast_power
+        below: input_number.appliance_standby_threshold
+        for: "00:02:00"
+    condition:
+      - condition: state
+        entity_id: input_boolean.dryer_cycle_active
+        state: 'on'
+    action:
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.dryer_cycle_active
+      - service: notify.persistent_notification
+        data:
+          title: "✅ Droogkast cyclus voltooid"
+          message: "Droogkast cyclus is afgerond"
+
+  - id: dryer_startup_evaluation
+    alias: "Droogkast - Opstart evaluatie"
+    description: "Evalueert of droogkast mag starten op basis van beschikbare capaciteit"
+    trigger:
+      - platform: state
+        entity_id: switch.droogkast
+        to: 'on'
+    condition:
+      - condition: state
+        entity_id: input_boolean.dryer_auto_mode
+        state: 'on'
+      - condition: state
+        entity_id: input_boolean.dryer_cycle_active
+        state: 'off'
+    action:
+      - delay: '00:00:05'
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: >
+                  {% set available = states('sensor.beschikbaar_vermogen') | float(0) %}
+                  {% set needed = states('input_number.dryer_power_usage') | float(2800) %}
+                  {{ available < needed }}
+            sequence:
+              - service: switch.turn_off
+                target:
+                  entity_id: switch.droogkast
+              - service: notify.persistent_notification
+                data:
+                  title: "⚠️ Droogkast start geblokkeerd"
+                  message: >
+                    Onvoldoende capaciteit beschikbaar.
+                    Beschikbaar: {{ states('sensor.beschikbaar_vermogen') }}W
+                    Nodig: {{ states('input_number.dryer_power_usage') }}W
+        default:
+          - service: notify.persistent_notification
+            data:
+              title: "✅ Droogkast start toegestaan"
+              message: >
+                Voldoende capaciteit beschikbaar.
+                Beschikbaar: {{ states('sensor.beschikbaar_vermogen') }}W

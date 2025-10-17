@@ -1,0 +1,391 @@
+2025-10-17 05:51:06.627 WARNING (SyncWorker_0) [homeassistant.loader] We found a custom integration hacs which has not been tested by Home Assistant. This component might cause stability problems, be sure to disable it if you experience issues with Home Assistant
+2025-10-17 05:51:06.632 WARNING (SyncWorker_0) [homeassistant.loader] We found a custom integration kia_connect which has not been tested by Home Assistant. This component might cause stability problems, be sure to disable it if you experience issues with Home Assistant
+2025-10-17 05:51:07.806 ERROR (MainThread) [homeassistant.config] Setup of package 'evohome_climate_control' at packages/evohome_climate_control.yaml, line 7 failed: integration 'script' has duplicate key 'alias'
+2025-10-17 05:51:07.807 ERROR (MainThread) [homeassistant.config] Setup of package 'smart_appliances' at packages/smart_appliances.yaml, line 7 failed: integration 'input_boolean' has duplicate key 'name'
+2025-10-17 05:51:07.811 ERROR (MainThread) [homeassistant.config] Setup of package 'witgoed_dal_tarief' at packages/witgoed_dal_tarief.yaml, line 4 failed: Integration 'witgoed_dal_tarief' not found.
+2025-10-17 05:51:07.814 ERROR (MainThread) [homeassistant.config] Setup of package 'witgoed_dashboard' at packages/witgoed_dashboard.yaml, line 4 failed: Integration 'witgoed_management' not found.
+2025-10-17 05:51:13.681 ERROR (MainThread) [homeassistant.helpers.translation] Validation of translation placeholders for localized (nl) string component.homeassistant_sky_connect.options.progress.install_firmware failed: ({'firmware_name', 'model'} != {'firmware_name'})
+2025-10-17 05:51:13.688 ERROR (MainThread) [homeassistant.helpers.translation] Validation of translation placeholders for localized (nl) string component.homeassistant_sky_connect.config.progress.install_firmware failed: ({'firmware_name', 'model'} != {'firmware_name'})
+2025-10-17 05:51:35.336 ERROR (MainThread) [homeassistant.config] Setup of package 'evohome_climate_control' at packages/evohome_climate_control.yaml, line 7 failed: integration 'script' has duplicate key 'alias'
+2025-10-17 05:51:35.337 ERROR (MainThread) [homeassistant.config] Setup of package 'smart_appliances' at packages/smart_appliances.yaml, line 7 failed: integration 'input_boolean' has duplicate key 'name'
+2025-10-17 05:51:35.347 ERROR (MainThread) [homeassistant.config] Setup of package 'witgoed_dal_tarief' at packages/witgoed_dal_tarief.yaml, line 4 failed: Integration 'witgoed_dal_tarief' not found.
+2025-10-17 05:51:35.354 ERROR (MainThread) [homeassistant.config] Setup of package 'witgoed_dashboard' at packages/witgoed_dashboard.yaml, line 4 failed: Integration 'witgoed_management' not found.
+2025-10-17 05:51:49.784 ERROR (MainThread) [homeassistant.components.sensor] Error adding entity sensor.kriebb_homeassistant_laatste_commit for domain sensor with platform github
+Traceback (most recent call last):
+  File "/usr/src/homeassistant/homeassistant/helpers/entity_platform.py", line 676, in _async_add_entities
+    await self._async_add_entity(
+        entity, False, entity_registry, config_subentry_id
+    )
+  File "/usr/src/homeassistant/homeassistant/helpers/entity_platform.py", line 1002, in _async_add_entity
+    await entity.add_to_platform_finish()
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1382, in add_to_platform_finish
+    self.async_write_ha_state()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1026, in async_write_ha_state
+    self._async_write_ha_state()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1151, in _async_write_ha_state
+    self.__async_calculate_state()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1088, in __async_calculate_state
+    state = self._stringify_state(available)
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1032, in _stringify_state
+    if (state := self.state) is None:
+                 ^^^^^^^^^^
+  File "/usr/src/homeassistant/homeassistant/components/sensor/__init__.py", line 569, in state
+    value = self.native_value
+            ^^^^^^^^^^^^^^^^^
+  File "/usr/src/homeassistant/homeassistant/components/github/sensor.py", line 194, in native_value
+    return self.entity_description.value_fn(self.coordinator.data)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/src/homeassistant/homeassistant/components/github/sensor.py", line 81, in <lambda>
+    value_fn=lambda data: data["default_branch_ref"]["commit"]["message"][:255],
+                          ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+TypeError: 'NoneType' object is not subscriptable
+2025-10-17 05:52:15.247 WARNING (MainThread) [homeassistant.bootstrap] Waiting on integrations to complete setup: {('zha', '01K13T13SK9ZYZVZFWK567RFA0'): 175.032585605}
+2025-10-17 05:53:15.317 WARNING (MainThread) [homeassistant.bootstrap] Waiting on integrations to complete setup: {('zha', '01K13T13SK9ZYZVZFWK567RFA0'): 175.032585605}
+2025-10-17 05:54:15.385 WARNING (MainThread) [homeassistant.bootstrap] Waiting on integrations to complete setup: {('zha', '01K13T13SK9ZYZVZFWK567RFA0'): 175.032585605}
+2025-10-17 05:55:15.466 WARNING (MainThread) [homeassistant.bootstrap] Waiting on integrations to complete setup: {('zha', '01K13T13SK9ZYZVZFWK567RFA0'): 175.032585605}
+2025-10-17 05:56:15.539 WARNING (MainThread) [homeassistant.bootstrap] Waiting on integrations to complete setup: {('zha', '01K13T13SK9ZYZVZFWK567RFA0'): 175.032585605}
+2025-10-17 05:56:22.926 ERROR (MainThread) [homeassistant.config_entries] Error setting up entry Home Assistant Connect ZBT-1 for zha
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.13/site-packages/bellows/uart.py", line 109, in reset
+    return await self._reset_future
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.13/site-packages/bellows/ezsp/__init__.py", line 140, in connect
+    await self.startup_reset()
+  File "/usr/local/lib/python3.13/site-packages/bellows/ezsp/__init__.py", line 129, in startup_reset
+    await self.reset()
+  File "/usr/local/lib/python3.13/site-packages/bellows/ezsp/__init__.py", line 148, in reset
+    await self._gw.reset()
+  File "/usr/local/lib/python3.13/site-packages/bellows/uart.py", line 108, in reset
+    async with asyncio_timeout(RESET_TIMEOUT):
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.13/asyncio/timeouts.py", line 116, in __aexit__
+    raise TimeoutError from exc_val
+TimeoutError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/src/homeassistant/homeassistant/config_entries.py", line 761, in __async_setup_with_context
+    result = await component.async_setup_entry(hass, self)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/src/homeassistant/homeassistant/components/zha/__init__.py", line 169, in async_setup_entry
+    await zha_gateway.async_initialize()
+  File "/usr/local/lib/python3.13/site-packages/zha/application/gateway.py", line 273, in async_initialize
+    await self._async_initialize()
+  File "/usr/local/lib/python3.13/site-packages/zha/application/gateway.py", line 256, in _async_initialize
+    await self.application_controller.startup(auto_form=True)
+  File "/usr/local/lib/python3.13/site-packages/zigpy/application.py", line 244, in startup
+    await self.connect()
+  File "/usr/local/lib/python3.13/site-packages/bellows/zigbee/application.py", line 159, in connect
+    await self._ezsp.connect(use_thread=self.config[CONF_USE_THREAD])
+  File "/usr/local/lib/python3.13/site-packages/bellows/ezsp/__init__.py", line 142, in connect
+    await self.disconnect()
+  File "/usr/local/lib/python3.13/site-packages/bellows/ezsp/__init__.py", line 207, in disconnect
+    await self._gw.disconnect()
+asyncio.exceptions.CancelledError: Global task timeout: Bootstrap stage 2 timeout
+2025-10-17 05:56:22.952 WARNING (MainThread) [homeassistant.bootstrap] Setup timed out for stage 2 waiting on set() - moving forward
+2025-10-17 05:56:24.089 WARNING (MainThread) [homeassistant.components.homeassistant.triggers.numeric_state] Error initializing 'Wasmachine Cyclus Detectie' trigger: In 'numeric_state' condition: unknown entity sensor.wasmachine_power
+2025-10-17 05:56:24.090 WARNING (MainThread) [homeassistant.components.homeassistant.triggers.numeric_state] Error initializing 'Wasmachine Cyclus Detectie' trigger: In 'numeric_state' condition: unknown entity sensor.wasmachine_power
+2025-10-17 05:57:22.329 ERROR (Thread-5) [pychromecast.socket_client] [Tv in woonkamer(192.168.5.23):8009] Failed to connect to service MDNSServiceInfo(name='TPM171E-69d87ddbd6234e38c408173dde9525ec._googlecast._tcp.local.'), retrying in 5.0s
+2025-10-17 05:58:24.105 ERROR (MainThread) [homeassistant.components.automation.evohome_refresh_on_ha_start] Evohome: Refresh on HA Start: Error executing script. Service not found for call_service at pos 2: Action evohome.refresh_system not found
+2025-10-17 06:11:24.218 ERROR (MainThread) [homeassistant.config] Setup of package 'evohome_climate_control' at packages/evohome_climate_control.yaml, line 7 failed: integration 'script' has duplicate key 'alias'
+2025-10-17 06:11:24.219 ERROR (MainThread) [homeassistant.config] Setup of package 'smart_appliances' at packages/smart_appliances.yaml, line 7 failed: integration 'input_boolean' has duplicate key 'name'
+2025-10-17 06:11:24.224 ERROR (MainThread) [homeassistant.config] Setup of package 'witgoed_dal_tarief' at packages/witgoed_dal_tarief.yaml, line 4 failed: Integration 'witgoed_dal_tarief' not found.
+2025-10-17 06:11:24.227 ERROR (MainThread) [homeassistant.config] Setup of package 'witgoed_dashboard' at packages/witgoed_dashboard.yaml, line 4 failed: Integration 'witgoed_management' not found.
+2025-10-17 06:30:00.378 WARNING (MainThread) [homeassistant.components.automation] Error evaluating condition in 'Evohome: Morning Boost':
+In 'condition':
+  In 'state':
+    In 'state' condition: unknown entity binary_sensor.workday_sensor
+2025-10-17 07:00:00.394 WARNING (MainThread) [homeassistant.components.automation] Error evaluating condition in 'Evohome: Eco During Peak Hours':
+In 'condition':
+  In 'state':
+    In 'state' condition: unknown entity binary_sensor.workday_sensor
+2025-10-17 07:21:49.598 ERROR (MainThread) [homeassistant] Error doing job: Task exception was never retrieved (None)
+Traceback (most recent call last):
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 280, in _handle_refresh_interval
+    await self._async_refresh(log_failures=True, scheduled=True)
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 491, in _async_refresh
+    self.async_update_listeners()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 190, in async_update_listeners
+    update_callback()
+    ~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 571, in _handle_coordinator_update
+    self.async_write_ha_state()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1026, in async_write_ha_state
+    self._async_write_ha_state()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1151, in _async_write_ha_state
+    self.__async_calculate_state()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1088, in __async_calculate_state
+    state = self._stringify_state(available)
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1032, in _stringify_state
+    if (state := self.state) is None:
+                 ^^^^^^^^^^
+  File "/usr/src/homeassistant/homeassistant/components/sensor/__init__.py", line 569, in state
+    value = self.native_value
+            ^^^^^^^^^^^^^^^^^
+  File "/usr/src/homeassistant/homeassistant/components/github/sensor.py", line 194, in native_value
+    return self.entity_description.value_fn(self.coordinator.data)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/src/homeassistant/homeassistant/components/github/sensor.py", line 81, in <lambda>
+    value_fn=lambda data: data["default_branch_ref"]["commit"]["message"][:255],
+                          ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+TypeError: 'NoneType' object is not subscriptable
+2025-10-17 08:51:49.546 ERROR (MainThread) [homeassistant] Error doing job: Task exception was never retrieved (None)
+Traceback (most recent call last):
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 280, in _handle_refresh_interval
+    await self._async_refresh(log_failures=True, scheduled=True)
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 491, in _async_refresh
+    self.async_update_listeners()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 190, in async_update_listeners
+    update_callback()
+    ~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 571, in _handle_coordinator_update
+    self.async_write_ha_state()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1026, in async_write_ha_state
+    self._async_write_ha_state()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1151, in _async_write_ha_state
+    self.__async_calculate_state()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1088, in __async_calculate_state
+    state = self._stringify_state(available)
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1032, in _stringify_state
+    if (state := self.state) is None:
+                 ^^^^^^^^^^
+  File "/usr/src/homeassistant/homeassistant/components/sensor/__init__.py", line 569, in state
+    value = self.native_value
+            ^^^^^^^^^^^^^^^^^
+  File "/usr/src/homeassistant/homeassistant/components/github/sensor.py", line 194, in native_value
+    return self.entity_description.value_fn(self.coordinator.data)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/src/homeassistant/homeassistant/components/github/sensor.py", line 81, in <lambda>
+    value_fn=lambda data: data["default_branch_ref"]["commit"]["message"][:255],
+                          ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+TypeError: 'NoneType' object is not subscriptable
+2025-10-17 09:00:38.799 ERROR (MainThread) [homeassistant.components.github] An error occurred while processing new events - Request exception for 'https://api.github.com/repos/kriebb/homeassistant/events' with - Cannot connect to host api.github.com:443 ssl:default [Timeout while contacting DNS servers]
+2025-10-17 10:21:49.956 ERROR (MainThread) [homeassistant] Error doing job: Task exception was never retrieved (None)
+Traceback (most recent call last):
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 280, in _handle_refresh_interval
+    await self._async_refresh(log_failures=True, scheduled=True)
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 491, in _async_refresh
+    self.async_update_listeners()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 190, in async_update_listeners
+    update_callback()
+    ~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 571, in _handle_coordinator_update
+    self.async_write_ha_state()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1026, in async_write_ha_state
+    self._async_write_ha_state()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1151, in _async_write_ha_state
+    self.__async_calculate_state()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1088, in __async_calculate_state
+    state = self._stringify_state(available)
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1032, in _stringify_state
+    if (state := self.state) is None:
+                 ^^^^^^^^^^
+  File "/usr/src/homeassistant/homeassistant/components/sensor/__init__.py", line 569, in state
+    value = self.native_value
+            ^^^^^^^^^^^^^^^^^
+  File "/usr/src/homeassistant/homeassistant/components/github/sensor.py", line 194, in native_value
+    return self.entity_description.value_fn(self.coordinator.data)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/src/homeassistant/homeassistant/components/github/sensor.py", line 81, in <lambda>
+    value_fn=lambda data: data["default_branch_ref"]["commit"]["message"][:255],
+                          ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+TypeError: 'NoneType' object is not subscriptable
+2025-10-17 11:08:22.144 WARNING (MainThread) [homeassistant.components.onkyo.media_player] Input source "CD ··· TV/CD" for entity: media_player.tx_nr609 is not in the list. Check integration options
+2025-10-17 11:21:35.935 WARNING (MainThread) [homeassistant.components.onkyo.media_player] Listening mode "DOLBY ATMOS/DOLBY SURROUND ··· PLII/PLIIx MOVIE" for entity: media_player.tx_nr609 is not in the list. Check integration options
+2025-10-17 11:51:49.692 ERROR (MainThread) [homeassistant] Error doing job: Task exception was never retrieved (None)
+Traceback (most recent call last):
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 280, in _handle_refresh_interval
+    await self._async_refresh(log_failures=True, scheduled=True)
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 491, in _async_refresh
+    self.async_update_listeners()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 190, in async_update_listeners
+    update_callback()
+    ~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 571, in _handle_coordinator_update
+    self.async_write_ha_state()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1026, in async_write_ha_state
+    self._async_write_ha_state()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1151, in _async_write_ha_state
+    self.__async_calculate_state()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1088, in __async_calculate_state
+    state = self._stringify_state(available)
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1032, in _stringify_state
+    if (state := self.state) is None:
+                 ^^^^^^^^^^
+  File "/usr/src/homeassistant/homeassistant/components/sensor/__init__.py", line 569, in state
+    value = self.native_value
+            ^^^^^^^^^^^^^^^^^
+  File "/usr/src/homeassistant/homeassistant/components/github/sensor.py", line 194, in native_value
+    return self.entity_description.value_fn(self.coordinator.data)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/src/homeassistant/homeassistant/components/github/sensor.py", line 81, in <lambda>
+    value_fn=lambda data: data["default_branch_ref"]["commit"]["message"][:255],
+                          ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+TypeError: 'NoneType' object is not subscriptable
+2025-10-17 13:00:17.150 ERROR (MainThread) [homeassistant.components.github] An error occurred while processing new events - Request exception for 'https://api.github.com/repos/kriebb/homeassistant/events' with - Cannot connect to host api.github.com:443 ssl:default [Timeout while contacting DNS servers]
+2025-10-17 13:21:49.640 ERROR (MainThread) [homeassistant] Error doing job: Task exception was never retrieved (None)
+Traceback (most recent call last):
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 280, in _handle_refresh_interval
+    await self._async_refresh(log_failures=True, scheduled=True)
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 491, in _async_refresh
+    self.async_update_listeners()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 190, in async_update_listeners
+    update_callback()
+    ~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 571, in _handle_coordinator_update
+    self.async_write_ha_state()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1026, in async_write_ha_state
+    self._async_write_ha_state()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1151, in _async_write_ha_state
+    self.__async_calculate_state()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1088, in __async_calculate_state
+    state = self._stringify_state(available)
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1032, in _stringify_state
+    if (state := self.state) is None:
+                 ^^^^^^^^^^
+  File "/usr/src/homeassistant/homeassistant/components/sensor/__init__.py", line 569, in state
+    value = self.native_value
+            ^^^^^^^^^^^^^^^^^
+  File "/usr/src/homeassistant/homeassistant/components/github/sensor.py", line 194, in native_value
+    return self.entity_description.value_fn(self.coordinator.data)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/src/homeassistant/homeassistant/components/github/sensor.py", line 81, in <lambda>
+    value_fn=lambda data: data["default_branch_ref"]["commit"]["message"][:255],
+                          ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+TypeError: 'NoneType' object is not subscriptable
+2025-10-17 13:31:59.269 ERROR (Thread-5) [pychromecast.socket_client] [Tv in woonkamer(192.168.5.23):8009] Failed to connect to service MDNSServiceInfo(name='TPM171E-69d87ddbd6234e38c408173dde9525ec._googlecast._tcp.local.'), retrying in 5.0s
+2025-10-17 14:51:49.687 ERROR (MainThread) [homeassistant] Error doing job: Task exception was never retrieved (None)
+Traceback (most recent call last):
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 280, in _handle_refresh_interval
+    await self._async_refresh(log_failures=True, scheduled=True)
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 491, in _async_refresh
+    self.async_update_listeners()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 190, in async_update_listeners
+    update_callback()
+    ~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 571, in _handle_coordinator_update
+    self.async_write_ha_state()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1026, in async_write_ha_state
+    self._async_write_ha_state()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1151, in _async_write_ha_state
+    self.__async_calculate_state()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1088, in __async_calculate_state
+    state = self._stringify_state(available)
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1032, in _stringify_state
+    if (state := self.state) is None:
+                 ^^^^^^^^^^
+  File "/usr/src/homeassistant/homeassistant/components/sensor/__init__.py", line 569, in state
+    value = self.native_value
+            ^^^^^^^^^^^^^^^^^
+  File "/usr/src/homeassistant/homeassistant/components/github/sensor.py", line 194, in native_value
+    return self.entity_description.value_fn(self.coordinator.data)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/src/homeassistant/homeassistant/components/github/sensor.py", line 81, in <lambda>
+    value_fn=lambda data: data["default_branch_ref"]["commit"]["message"][:255],
+                          ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+TypeError: 'NoneType' object is not subscriptable
+2025-10-17 16:21:49.541 ERROR (MainThread) [homeassistant] Error doing job: Task exception was never retrieved (None)
+Traceback (most recent call last):
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 280, in _handle_refresh_interval
+    await self._async_refresh(log_failures=True, scheduled=True)
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 491, in _async_refresh
+    self.async_update_listeners()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 190, in async_update_listeners
+    update_callback()
+    ~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 571, in _handle_coordinator_update
+    self.async_write_ha_state()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1026, in async_write_ha_state
+    self._async_write_ha_state()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1151, in _async_write_ha_state
+    self.__async_calculate_state()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1088, in __async_calculate_state
+    state = self._stringify_state(available)
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1032, in _stringify_state
+    if (state := self.state) is None:
+                 ^^^^^^^^^^
+  File "/usr/src/homeassistant/homeassistant/components/sensor/__init__.py", line 569, in state
+    value = self.native_value
+            ^^^^^^^^^^^^^^^^^
+  File "/usr/src/homeassistant/homeassistant/components/github/sensor.py", line 194, in native_value
+    return self.entity_description.value_fn(self.coordinator.data)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/src/homeassistant/homeassistant/components/github/sensor.py", line 81, in <lambda>
+    value_fn=lambda data: data["default_branch_ref"]["commit"]["message"][:255],
+                          ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+TypeError: 'NoneType' object is not subscriptable
+2025-10-17 17:00:00.080 WARNING (MainThread) [homeassistant.components.automation] Error evaluating condition in 'Evohome: Eco During Peak Hours':
+In 'condition':
+  In 'state':
+    In 'state' condition: unknown entity binary_sensor.workday_sensor
+2025-10-17 17:51:49.592 ERROR (MainThread) [homeassistant] Error doing job: Task exception was never retrieved (None)
+Traceback (most recent call last):
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 280, in _handle_refresh_interval
+    await self._async_refresh(log_failures=True, scheduled=True)
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 491, in _async_refresh
+    self.async_update_listeners()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 190, in async_update_listeners
+    update_callback()
+    ~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/update_coordinator.py", line 571, in _handle_coordinator_update
+    self.async_write_ha_state()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1026, in async_write_ha_state
+    self._async_write_ha_state()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1151, in _async_write_ha_state
+    self.__async_calculate_state()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1088, in __async_calculate_state
+    state = self._stringify_state(available)
+  File "/usr/src/homeassistant/homeassistant/helpers/entity.py", line 1032, in _stringify_state
+    if (state := self.state) is None:
+                 ^^^^^^^^^^
+  File "/usr/src/homeassistant/homeassistant/components/sensor/__init__.py", line 569, in state
+    value = self.native_value
+            ^^^^^^^^^^^^^^^^^
+  File "/usr/src/homeassistant/homeassistant/components/github/sensor.py", line 194, in native_value
+    return self.entity_description.value_fn(self.coordinator.data)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/src/homeassistant/homeassistant/components/github/sensor.py", line 81, in <lambda>
+    value_fn=lambda data: data["default_branch_ref"]["commit"]["message"][:255],
+                          ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+TypeError: 'NoneType' object is not subscriptable

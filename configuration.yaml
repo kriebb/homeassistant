@@ -1,0 +1,35 @@
+
+# Loads default set of integrations. Do not remove.
+default_config:
+
+homeassistant:
+  packages: !include_dir_named packages
+
+# ==============================================
+# CORE CONFIGURATION
+# ==============================================
+
+frontend:
+  themes: !include_dir_merge_named themes
+
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+
+# Dashboard configuration
+lovelace:
+  mode: storage
+  dashboards:
+    energy-management:
+      mode: yaml
+      title: Energy Management
+      icon: mdi:flash
+      show_in_sidebar: true
+      filename: dashboards/energy_management.yaml
+    simple-energy:  # Add this new dashboard
+      mode: yaml
+      title: Simple Energy
+      icon: mdi:flash-outline
+      show_in_sidebar: true
+      filename: dashboards/simple_energy_management.yaml
+      
