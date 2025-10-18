@@ -1,0 +1,32 @@
+template:
+  - trigger:
+      - platform: state
+        entity_id:
+          - sensor.metered_wall_plug_switch_power
+          - sensor.droogkast_power # vervang zodra je echte sensor weet
+          - sensor.vaatwas_power
+        from: "off"
+        to: "on"
+    sensor:
+      - name: "Actieve apparaatfingerprint"
+        state: "{{ trigger.entity_id }}"
+        attributes:
+          start_time: "{{ now() }}"
+          initial_power: "{{ states(trigger.entity_id) }}"
+
+  - trigger:
+      - platform: state
+        entity_id:
+          - sensor.metered_wall_plug_switch_power
+          - sensor.droogkast_power
+          - sensor.vaatwas_power
+        from: "on"
+        to: "off"
+    sensor:
+      - name: "Laatste apparaatfingerprint"
+        state: "{{ trigger.entity_id }}"
+        attributes:
+          duration_min: >
+            {{ ((as_timestamp(now()) - as_timestamp(this.attributes.start_time | default(now()))) / 60) | round(1) }}
+          avg_power_w: "{{ state_attr(trigger.entity_id, 'mean_power') | default(0) }}"
+          energy_wh: "{{ state_attr(trigger.entity_id, 'energy') | default(0) }}"

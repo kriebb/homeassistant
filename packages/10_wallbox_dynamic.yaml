@@ -1,0 +1,47 @@
+input_number:
+  wallbox_min_amp:
+    name: Wallbox minimum stroom
+    min: 6
+    max: 16
+    step: 1
+    unit_of_measurement: "A"
+    initial: 6
+
+automation:
+  - alias: "Wallbox - Dynamische laadregeling (Waterker)"
+    id: wallbox_dynamic_waterker
+    trigger:
+      - platform: state
+        entity_id:
+          - sensor.waterker_power
+          - sensor.fluvius_capacity_limit
+        for: "00:00:10"
+    variables:
+      limit: "{{ states('sensor.fluvius_capacity_limit') | float(4000) }}"
+      house_power: "{{ states('sensor.waterker_power') | float(0) }}"
+      voltage: 230
+      min_amp: "{{ states('input_number.wallbox_min_amp') | int(6) }}"
+      max_amp: 16
+    action:
+      - variables:
+          available_power: "{{ [limit - house_power, 0] | max }}"
+          target_amp: >
+            {% set amps = (available_power / voltage) | int %}
+            {% if amps < min_amp %} {{ min_amp }}
+            {% elif amps > max_amp %} {{ max_amp }}
+            {% else %} {{ amps }} {% endif %}
+      - service: wallbox.set_max_charging_current
+        data:
+          charging_current: "{{ target_amp }}"
+          entity_id: sensor.wallbox_kristof_riebbels_max_laadstroom
+      - if:
+          - condition: template
+            value_template: "{{ available_power < 0 }}"
+        then:
+          - service: system_log.write
+            data:
+              level: warning
+              message: >
+                "⚠️ Capaciteit overschreden: {{ house_power|int }} W / limiet {{ limit|int }} W.
+                 Wallbox verlaagd naar {{ target_amp }} A."
+    mode: restart

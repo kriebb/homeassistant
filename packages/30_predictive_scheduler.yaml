@@ -1,0 +1,74 @@
+# ==============================================
+#  PREDICTIVE ENERGY SCHEDULER
+# ==============================================
+
+input_boolean:
+  scheduler_active:
+    name: "Automatisch plannen toestellen"
+    icon: mdi:calendar-clock
+    initial: on
+
+input_number:
+  predictive_window_hours:
+    name: "Voorspellingsvenster (uren)"
+    min: 1
+    max: 12
+    step: 1
+    initial: 6
+    unit_of_measurement: "u"
+
+sensor:
+  - platform: template
+    sensors:
+      predicted_free_capacity:
+        friendly_name: "Voorspelde vrije capaciteit (W)"
+        unit_of_measurement: "W"
+        value_template: >
+          {% set base = states('sensor.fluvius_capacity_limit') | float(4000) %}
+          {% set current = states('sensor.waterker_power') | float(0) %}
+          {% set last_wash = states('sensor.metered_wall_plug_switch_power') | float(0) %}
+          {% set last_dish = states('sensor.vaatwas_power') | float(0) %}
+          {% set dryer = states('sensor.droogkast_power') | float(0) %}
+          {% set predicted = base - (current + last_wash*0.3 + last_dish*0.3 + dryer*0.3) %}
+          {{ [predicted, 0] | max }}
+
+automation:
+  - alias: "Predictive – Start witgoed als capaciteit vrij is"
+    id: predictive_start_witgoed
+    mode: single
+    trigger:
+      - platform: time_pattern
+        minutes: "/15"
+    condition:
+      - condition: state
+        entity_id: input_boolean.scheduler_active
+        state: "on"
+      - condition: numeric_state
+        entity_id: sensor.predicted_free_capacity
+        above: 1000
+    action:
+      - choose:
+          - conditions:
+              - condition: numeric_state
+                entity_id: sensor.metered_wall_plug_switch_power
+                below: 5
+            sequence:
+              - service: switch.turn_on
+                target:
+                  entity_id: switch.metered_wall_plug_switch
+              - service: persistent_notification.create
+                data:
+                  title: "Predictive Scheduler"
+                  message: "Wasmachine gestart — voldoende capaciteit."
+          - conditions:
+              - condition: numeric_state
+                entity_id: sensor.vaatwas_power
+                below: 5
+            sequence:
+              - service: switch.turn_on
+                target:
+                  entity_id: switch.vaatwas
+              - service: persistent_notification.create
+                data:
+                  title: "Predictive Scheduler"
+                  message: "Vaatwasser gestart — capaciteit beschikbaar."

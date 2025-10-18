@@ -1,0 +1,22 @@
+sensor:
+  - platform: template
+    sensors:
+      fluvius_capacity_limit:
+        friendly_name: "Fluvius Capaciteitslimiet (W)"
+        unit_of_measurement: "W"
+        value_template: >
+          {% set monthly_peak = states('sensor.waterker_electric_consumption_w') | float(4000) %}
+          {% set contract_limit = 4000 %}
+          {% if monthly_peak > contract_limit %}
+            {{ monthly_peak }}
+          {% else %}
+            {{ contract_limit }}
+          {% endif %}
+
+      available_capacity:
+        friendly_name: "Beschikbare capaciteit (W)"
+        unit_of_measurement: "W"
+        value_template: >
+          {% set limit = states('sensor.fluvius_capacity_limit') | float(4000) %}
+          {% set load = states('sensor.waterker_power') | float(0) %}
+          {{ [limit - load, 0] | max }}
