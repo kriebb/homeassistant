@@ -1,0 +1,12 @@
+# TEST PACKAGE: core sensoren en waarden
+template:
+  - sensor:
+      - name: "test_available_capacity"
+        state: 4000
+        unit_of_measurement: "W"
+      - name: "test_fluvius_capacity_limit"
+        state: 4000
+        unit_of_measurement: "W"
+      - name: "test_house_consumption_power"
+        state: 1234
+        unit_of_measurement: "W"
