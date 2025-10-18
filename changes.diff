@@ -1,0 +1,561 @@
+diff --git a/packages/00_energy_core.yaml b/packages/00_energy_core.yaml
+index e130483..3a913fc 100644
+--- a/packages/00_energy_core.yaml
++++ b/packages/00_energy_core.yaml
+@@ -1,22 +1,40 @@
+ sensor:
++  - platform: statistics
++    name: home_import_power_peak_31d
++    entity_id: sensor.eth_dongle_pro_power_delivered
++    state_characteristic: value_max
++    max_age:
++      days: 31
+   - platform: template
+     sensors:
+       fluvius_capacity_limit:
+         friendly_name: "Fluvius Capaciteitslimiet (W)"
+         unit_of_measurement: "W"
++        device_class: power
++        state_class: measurement
++        availability_template: >
++          {{ states('input_number.ev_main_limit_w') not in ['unknown', 'unavailable', None] and states('sensor.home_import_power_peak_31d') not in ['unknown', 'unavailable', None] }}
+         value_template: >
+-          {% set monthly_peak = states('sensor.waterker_electric_consumption_w') | float(4000) %}
+-          {% set contract_limit = 4000 %}
++          {% set contract_limit = states('input_number.ev_main_limit_w') | float(4000) %}
++          {% set monthly_peak = states('sensor.home_import_power_peak_31d') | float(0) %}
+           {% if monthly_peak > contract_limit %}
+-            {{ monthly_peak }}
++            {{ monthly_peak | round(0) }}
+           {% else %}
+-            {{ contract_limit }}
++            {{ contract_limit | round(0) }}
+           {% endif %}
+ 
+       available_capacity:
+         friendly_name: "Beschikbare capaciteit (W)"
+         unit_of_measurement: "W"
++        device_class: power
++        state_class: measurement
++        availability_template: >
++          {{ states('sensor.fluvius_capacity_limit') not in ['unknown', 'unavailable', None] and
++             states('sensor.eth_dongle_pro_power_delivered') not in ['unknown', 'unavailable', None] and
++             states('sensor.eth_dongle_pro_power_returned') not in ['unknown', 'unavailable', None] }}
+         value_template: >
+-          {% set limit = states('sensor.fluvius_capacity_limit') | float(4000) %}
+-          {% set load = states('sensor.waterker_power') | float(0) %}
+-          {{ [limit - load, 0] | max }}
++          {% set limit = states('sensor.fluvius_capacity_limit') | float(0) %}
++          {% set delivered = states('sensor.eth_dongle_pro_power_delivered') | float(0) %}
++          {% set returned = states('sensor.eth_dongle_pro_power_returned') | float(0) %}
++          {% set load = [delivered - returned, 0] | max %}
++          {{ [limit - load, 0] | max | round(0) }}
+diff --git a/packages/10_wallbox_dynamic.yaml b/packages/10_wallbox_dynamic.yaml
+index eaba972..1adbaa7 100644
+--- a/packages/10_wallbox_dynamic.yaml
++++ b/packages/10_wallbox_dynamic.yaml
+@@ -2,46 +2,48 @@ input_number:
+   wallbox_min_amp:
+     name: Wallbox minimum stroom
+     min: 6
+-    max: 16
++    max: 32
+     step: 1
+     unit_of_measurement: "A"
+     initial: 6
+ 
+-automation:
+-  - alias: "Wallbox - Dynamische laadregeling (Waterker)"
+-    id: wallbox_dynamic_waterker
+-    trigger:
+-      - platform: state
+-        entity_id:
+-          - sensor.waterker_power
+-          - sensor.fluvius_capacity_limit
+-        for: "00:00:10"
+-    variables:
+-      limit: "{{ states('sensor.fluvius_capacity_limit') | float(4000) }}"
+-      house_power: "{{ states('sensor.waterker_power') | float(0) }}"
+-      voltage: 230
+-      min_amp: "{{ states('input_number.wallbox_min_amp') | int(6) }}"
+-      max_amp: 16
+-    action:
+-      - variables:
+-          available_power: "{{ [limit - house_power, 0] | max }}"
+-          target_amp: >
+-            {% set amps = (available_power / voltage) | int %}
+-            {% if amps < min_amp %} {{ min_amp }}
+-            {% elif amps > max_amp %} {{ max_amp }}
+-            {% else %} {{ amps }} {% endif %}
+-      - service: wallbox.set_max_charging_current
+-        data:
+-          charging_current: "{{ target_amp }}"
+-          entity_id: sensor.wallbox_kristof_riebbels_max_laadstroom
+-      - if:
+-          - condition: template
+-            value_template: "{{ available_power < 0 }}"
+-        then:
+-          - service: system_log.write
+-            data:
+-              level: warning
+-              message: >
+-                "⚠️ Capaciteit overschreden: {{ house_power|int }} W / limiet {{ limit|int }} W.
+-                 Wallbox verlaagd naar {{ target_amp }} A."
+-    mode: restart
++# NOTE:
++# Legacy automation kept commented for reference. It was replaced by packages/11_wallbox_load_balancer.yaml.
++# automation:
++#   - alias: "Wallbox - Dynamische laadregeling (Waterker)"
++#     id: wallbox_dynamic_waterker
++#     trigger:
++#       - platform: state
++#         entity_id:
++#           - sensor.waterker_power
++#           - sensor.fluvius_capacity_limit
++#         for: "00:00:10"
++#     variables:
++#       limit: "{{ states('sensor.fluvius_capacity_limit') | float(4000) }}"
++#       house_power: "{{ states('sensor.waterker_power') | float(0) }}"
++#       voltage: 230
++#       min_amp: "{{ states('input_number.wallbox_min_amp') | int(6) }}"
++#       max_amp: 16
++#     action:
++#       - variables:
++#           available_power: "{{ [limit - house_power, 0] | max }}"
++#           target_amp: >
++#             {% set amps = (available_power / voltage) | int %}
++#             {% if amps < min_amp %} {{ min_amp }}
++#             {% elif amps > max_amp %} {{ max_amp }}
++#             {% else %} {{ amps }} {% endif %}
++#       - service: wallbox.set_max_charging_current
++#         data:
++#           charging_current: "{{ target_amp }}"
++#           entity_id: sensor.wallbox_kristof_riebbels_max_laadstroom
++#       - if:
++#           - condition: template
++#             value_template: "{{ available_power < 0 }}"
++#         then:
++#           - service: system_log.write
++#             data:
++#               level: warning
++#               message: >
++#                 "⚠️ Capaciteit overschreden: {{ house_power|int }} W / limiet {{ limit|int }} W.
++#                  Wallbox verlaagd naar {{ target_amp }} A."
++#     mode: restart
+diff --git a/packages/11_wallbox_load_balancer.yaml b/packages/11_wallbox_load_balancer.yaml
+new file mode 100755
+index 0000000..50ea110
+--- /dev/null
++++ b/packages/11_wallbox_load_balancer.yaml
+@@ -0,0 +1,411 @@
++# ==============================================
++#  WALLBOX LOAD BALANCER (EV)
++# ==============================================
++# Helpers and automations that keep the EV charger
++# within the home capacity limit while avoiding
++# rapid flapping and allowing manual override.
++
++input_boolean:
++  ev_force_max:
++    name: "EV Forceer maximum laadstroom"
++    icon: mdi:flash-alert
++    initial: off
++
++input_number:
++  ev_main_limit_w:
++    name: "EV hoofdlimiet (W)"
++    icon: mdi:flash
++    mode: box
++    min: 3000
++    max: 25000
++    step: 50
++    unit_of_measurement: "W"
++    initial: 4000
++
++  wallbox_max_amp:
++    name: "Wallbox maximum stroom"
++    icon: mdi:car-electric
++    min: 6
++    max: 32
++    step: 1
++    unit_of_measurement: "A"
++    initial: 16
++
++  ev_margin_w:
++    name: "EV veiligheidsmarge (W)"
++    icon: mdi:shield-alert
++    min: 0
++    max: 2000
++    step: 50
++    unit_of_measurement: "W"
++    initial: 500
++
++  ev_hysteresis_w:
++    name: "EV hysterese (W)"
++    icon: mdi:waveform
++    min: 0
++    max: 2000
++    step: 50
++    unit_of_measurement: "W"
++    initial: 300
++
++  ev_step_amp:
++    name: "EV stroomstap (A)"
++    icon: mdi:ray-vertex
++    min: 1
++    max: 4
++    step: 1
++    unit_of_measurement: "A"
++    initial: 1
++
++  ev_last_set_current_a:
++    name: "EV laatst ingestelde stroom"
++    icon: mdi:counter
++    mode: box
++    min: 0
++    max: 32
++    step: 1
++    unit_of_measurement: "A"
++    initial: 0
++
++template:
++  - sensor:
++      - name: "EV House Power"
++        unique_id: ev_house_power
++        icon: mdi:home-lightning-bolt
++        unit_of_measurement: "W"
++        device_class: power
++        state_class: measurement
++        availability: >
++          {{ states('sensor.eth_dongle_pro_power_delivered') not in ['unknown', 'unavailable', None] and
++             states('sensor.eth_dongle_pro_power_returned') not in ['unknown', 'unavailable', None] }}
++        state: >
++          {% set delivered = states('sensor.eth_dongle_pro_power_delivered') | float(0) %}
++          {% set returned = states('sensor.eth_dongle_pro_power_returned') | float(0) %}
++          {{ [delivered - returned, 0] | max | round(0) }}
++        attributes:
++          delivered_entity: sensor.eth_dongle_pro_power_delivered
++          returned_entity: sensor.eth_dongle_pro_power_returned
++
++      - name: "EV Capacity Limit"
++        unique_id: ev_capacity_limit
++        icon: mdi:flash
++        unit_of_measurement: "W"
++        device_class: power
++        state_class: measurement
++        availability: >
++          {{ states('sensor.fluvius_capacity_limit') not in ['unknown', 'unavailable', None] or
++             states('input_number.ev_main_limit_w') not in ['unknown', 'unavailable', None] }}
++        state: >
++          {% set limit_sensor = states('sensor.fluvius_capacity_limit') %}
++          {% if limit_sensor not in ['unknown', 'unavailable', None] %}
++            {{ limit_sensor | float(0) | round(0) }}
++          {% else %}
++            {{ states('input_number.ev_main_limit_w') | float(4000) | round(0) }}
++          {% endif %}
++        attributes:
++          source_preference: >
++            {% if states('sensor.fluvius_capacity_limit') not in ['unknown', 'unavailable', None] %}
++              sensor.fluvius_capacity_limit
++            {% else %}
++              input_number.ev_main_limit_w
++            {% endif %}
++
++      - name: "EV Estimated Charger Power"
++        unique_id: ev_estimated_charger_power
++        icon: mdi:car-electric
++        unit_of_measurement: "W"
++        device_class: power
++        state_class: measurement
++        availability: "{{ states('input_number.ev_last_set_current_a') not in ['unknown', 'unavailable', None] }}"
++        state: >
++          {% set voltage = 230 %}
++          {% set measured = namespace(value = none) %}
++          {% for candidate in [
++            'sensor.wallbox_kristof_riebbels_laadvermogen',
++            'sensor.wallbox_kristof_riebbels_max_laadstroom',
++            'sensor.wallbox_kristof_riebbels_max_beschikbaar_vermogen'
++          ] %}
++            {% set item = states(candidate) %}
++            {% if item not in ['unknown', 'unavailable', None] %}
++              {% if '_laadvermogen' in candidate %}
++                {% set measured.value = (item | float(0)) * 1000 %}
++              {% else %}
++                {% set measured.value = (item | float(0)) * voltage %}
++              {% endif %}
++              {% break %}
++            {% endif %}
++          {% endfor %}
++          {% if measured.value is not none %}
++            {{ measured.value | round(0) }}
++          {% else %}
++            {{ (states('input_number.ev_last_set_current_a') | float(0) * voltage) | round(0) }}
++          {% endif %}
++        attributes:
++          source_entity: >
++            {% for candidate in [
++              'sensor.wallbox_kristof_riebbels_laadvermogen',
++              'sensor.wallbox_kristof_riebbels_max_laadstroom',
++              'sensor.wallbox_kristof_riebbels_max_beschikbaar_vermogen'
++            ] %}
++              {% if states(candidate) not in ['unknown', 'unavailable', None] %}
++                {{ candidate }}
++                {% break %}
++              {% endif %}
++            {% else %}
++              input_number.ev_last_set_current_a
++            {% endfor %}
++
++      - name: "EV Non-EV Load"
++        unique_id: ev_non_ev_load
++        icon: mdi:transmission-tower
++        unit_of_measurement: "W"
++        device_class: power
++        state_class: measurement
++        availability: >
++          {{ states('sensor.ev_house_power') not in ['unknown', 'unavailable', None] and
++             states('sensor.ev_estimated_charger_power') not in ['unknown', 'unavailable', None] }}
++        state: >
++          {% set house = states('sensor.ev_house_power') | float(0) %}
++          {% set ev_power = states('sensor.ev_estimated_charger_power') | float(0) %}
++          {{ [house - ev_power, 0] | max | round(0) }}
++
++      - name: "EV Available Capacity"
++        unique_id: ev_available_capacity
++        icon: mdi:flash-outline
++        unit_of_measurement: "W"
++        device_class: power
++        state_class: measurement
++        availability: >
++          {{ states('sensor.ev_capacity_limit') not in ['unknown', 'unavailable', None] and
++             states('sensor.ev_non_ev_load') not in ['unknown', 'unavailable', None] }}
++        state: >
++          {% set limit_w = states('sensor.ev_capacity_limit') | float(0) %}
++          {% set margin_w = states('input_number.ev_margin_w') | float(0) %}
++          {% set non_ev_w = states('sensor.ev_non_ev_load') | float(0) %}
++          {{ [limit_w - margin_w - non_ev_w, 0] | max | round(0) }}
++
++    binary_sensor:
++      - name: "EV Load Balancer Ready"
++        unique_id: ev_load_balancer_ready
++        device_class: connectivity
++        availability: "{{ true }}"
++        state: >
++          {% set tracker = namespace(missing=[]) %}
++          {% for entity in [
++            'sensor.ev_house_power',
++            'sensor.ev_capacity_limit',
++            'sensor.ev_available_capacity'
++          ] %}
++            {% if states(entity) in ['unknown', 'unavailable', None] %}
++              {% set tracker.missing = tracker.missing + [entity] %}
++            {% endif %}
++          {% endfor %}
++          {{ tracker.missing | length == 0 }}
++        attributes:
++          missing_entities: >
++            {% set tracker = namespace(missing=[]) %}
++            {% for entity in [
++              'sensor.ev_house_power',
++              'sensor.ev_capacity_limit',
++              'sensor.ev_available_capacity'
++            ] %}
++              {% if states(entity) in ['unknown', 'unavailable', None] %}
++                {% set tracker.missing = tracker.missing + [entity] %}
++              {% endif %}
++            {% endfor %}
++            {{ tracker.missing }}
++
++automation:
++  - alias: "EV Load Balancer - Adjust Charging Amps"
++    id: ev_load_balancer_adjust_charging_amps
++    mode: restart
++    trigger:
++      - platform: state
++        entity_id:
++          - sensor.ev_house_power
++          - sensor.ev_capacity_limit
++          - sensor.ev_non_ev_load
++        for: "00:00:20"
++      - platform: time_pattern
++        seconds: "/30"
++      - platform: homeassistant
++        event: start
++    condition:
++      - condition: state
++        entity_id: input_boolean.ev_force_max
++        state: "off"
++      - condition: state
++        entity_id: binary_sensor.ev_load_balancer_ready
++        state: "on"
++    action:
++      - variables:
++          voltage_avg: >
++            {% set readings = namespace(values=[]) %}
++            {% for candidate in [
++              'sensor.eth_dongle_pro_voltage_l1',
++              'sensor.eth_dongle_pro_voltage_l2',
++              'sensor.eth_dongle_pro_voltage_l3'
++            ] %}
++              {% set raw = states(candidate) %}
++              {% if raw not in ['unknown', 'unavailable', None] %}
++                {% set readings.values = readings.values + [raw | float(0)] %}
++              {% endif %}
++            {% endfor %}
++            {% if readings.values %}
++              {{ (readings.values | sum / readings.values | length) | round(1) }}
++            {% else %}
++              230
++            {% endif %}
++          limit_w: "{{ states('sensor.ev_capacity_limit') | float(0) }}"
++          margin_w: "{{ states('input_number.ev_margin_w') | float(0) }}"
++          hysteresis_w: "{{ states('input_number.ev_hysteresis_w') | float(0) }}"
++          step_amp: "{{ states('input_number.ev_step_amp') | float(1) }}"
++          min_amp: "{{ states('input_number.wallbox_min_amp') | float(6) }}"
++          max_amp: "{{ states('input_number.wallbox_max_amp') | float(16) }}"
++          helper_amp: "{{ states('input_number.ev_last_set_current_a') | float(0) }}"
++          non_ev_w: "{{ states('sensor.ev_non_ev_load') | float(0) }}"
++      - variables:
++          measured_current_amp: >
++            {% set current = namespace(value = helper_amp) %}
++            {% set voltage_local = voltage_avg | float(230) %}
++            {% if voltage_local <= 0 %}
++              {% set voltage_local = 230 %}
++            {% endif %}
++            {% set power = states('sensor.wallbox_kristof_riebbels_laadvermogen') %}
++            {% if power not in ['unknown', 'unavailable', None] %}
++              {% set current.value = ((power | float(0)) * 1000 / voltage_local) %}
++            {% else %}
++              {% for candidate in [
++                'sensor.wallbox_kristof_riebbels_max_laadstroom',
++                'sensor.wallbox_kristof_riebbels_max_beschikbaar_vermogen'
++              ] %}
++                {% set raw = states(candidate) %}
++                {% if raw not in ['unknown', 'unavailable', None] %}
++                  {% set current.value = raw | float(0) %}
++                  {% break %}
++                {% endif %}
++              {% endfor %}
++            {% endif %}
++            {{ current.value }}
++          current_amp: "{{ measured_current_amp | float(0) }}"
++          available_w: >
++            {% set raw = limit_w - margin_w - non_ev_w %}
++            {{ [raw, 0] | max }}
++          target_amp_calc: >
++            {% set v = voltage_avg | float(230) %}
++            {% if v <= 0 %}
++              {% set v = 230 %}
++            {% endif %}
++            {{ (available_w / v) | float(0) }}
++          ramp_target_amp: >
++            {% set current = current_amp %}
++            {% set target = target_amp_calc %}
++            {% set step = step_amp %}
++            {% if target > current + step %}
++              {{ current + step }}
++            {% elif target < current - step %}
++              {{ current - step }}
++            {% else %}
++              {{ target }}
++            {% endif %}
++          target_amp_clamped: >
++            {% set t = ramp_target_amp %}
++            {% if t > max_amp %}
++              {{ max_amp }}
++            {% elif t < min_amp %}
++              {{ t }}
++            {% else %}
++              {{ t }}
++            {% endif %}
++      - choose:
++          - conditions:
++              - condition: template
++                value_template: >
++                  {% set v = voltage_avg | float(230) %}
++                  {% if v <= 0 %}
++                    {% set v = 230 %}
++                  {% endif %}
++                  {{ target_amp_calc < min_amp and (non_ev_w + (min_amp * v)) > (limit_w - hysteresis_w) }}
++            sequence:
++              - service: switch.turn_off
++                target:
++                  entity_id: switch.wallbox_kristof_riebbels_pauzeren_hervatten
++              - service: input_number.set_value
++                target:
++                  entity_id: input_number.ev_last_set_current_a
++                data:
++                  value: 0
++              - stop: "Charging paused because demand exceeded limit even at minimum amps."
++      - if:
++          - condition: state
++            entity_id: switch.wallbox_kristof_riebbels_pauzeren_hervatten
++            state: "off"
++          - condition: template
++            value_template: >
++              {% set v = voltage_avg | float(230) %}
++              {% if v <= 0 %}
++                {% set v = 230 %}
++              {% endif %}
++              {{ (non_ev_w + (min_amp * v)) <= (limit_w - hysteresis_w) }}
++        then:
++          - service: switch.turn_on
++            target:
++              entity_id: switch.wallbox_kristof_riebbels_pauzeren_hervatten
++      - variables:
++          target_amp_final: >
++            {% if target_amp_clamped < min_amp %}
++              {{ min_amp }}
++            {% else %}
++              {{ [target_amp_clamped, max_amp] | min }}
++            {% endif %}
++      - condition: template
++        value_template: >
++          {{ (target_amp_final | round(0)) != (helper_amp | round(0)) }}
++      - service: number.set_value
++        target:
++          entity_id: number.wallbox_kristof_riebbels_maximale_laadstroom
++        data:
++          value: "{{ target_amp_final | round(0) }}"
++      - service: input_number.set_value
++        target:
++          entity_id: input_number.ev_last_set_current_a
++        data:
++          value: "{{ target_amp_final | round(0) }}"
++      - delay:
++          seconds: 5
++
++  - alias: "EV Load Balancer - Force Max Override"
++    id: ev_load_balancer_force_max_override
++    mode: queued
++    trigger:
++      - platform: state
++        entity_id: input_boolean.ev_force_max
++    action:
++      - choose:
++          - conditions:
++              - condition: state
++                entity_id: input_boolean.ev_force_max
++                state: "on"
++            sequence:
++              - service: switch.turn_on
++                target:
++                  entity_id: switch.wallbox_kristof_riebbels_pauzeren_hervatten
++              - service: number.set_value
++                target:
++                  entity_id: number.wallbox_kristof_riebbels_maximale_laadstroom
++                data:
++                  value: "{{ states('input_number.wallbox_max_amp') | int(16) }}"
++              - service: input_number.set_value
++                target:
++                  entity_id: input_number.ev_last_set_current_a
++                data:
++                  value: "{{ states('input_number.wallbox_max_amp') | int(16) }}"
++          - conditions:
++              - condition: state
++                entity_id: input_boolean.ev_force_max
++                state: "off"
++            sequence:
++              - service: automation.trigger
++                target:
++                  entity_id: automation.ev_load_balancer_adjust_charging_amps
