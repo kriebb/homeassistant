@@ -9,4 +9,7 @@ home-assistant.log*
 home-assistant_*.log*
 deps/
 
-.storage
+**/*/.storage
+zigbee.db
+zigbee.db-shm
+zigbee.db-wal
