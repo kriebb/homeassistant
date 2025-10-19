@@ -11,7 +11,8 @@ sensor:
         friendly_name: "Fluvius Capaciteitslimiet (W)"
         unit_of_measurement: "W"
         device_class: power
-        state_class: measurement
+        attribute_templates:
+          state_class: measurement
         availability_template: >
           {{ states('input_number.ev_main_limit_w') not in ['unknown', 'unavailable', None] and states('sensor.home_import_power_peak_31d') not in ['unknown', 'unavailable', None] }}
         value_template: >
@@ -27,7 +28,8 @@ sensor:
         friendly_name: "Beschikbare capaciteit (W)"
         unit_of_measurement: "W"
         device_class: power
-        state_class: measurement
+        attribute_templates:
+          state_class: measurement
         availability_template: >
           {{ states('sensor.fluvius_capacity_limit') not in ['unknown', 'unavailable', None] and
              states('sensor.eth_dongle_pro_power_delivered') not in ['unknown', 'unavailable', None] and
