@@ -1,15 +1,138 @@
-# Home Assistant runtime DB + sidecars
+# =========================
+# Home Assistant core runtime (DB + logs + temp)
+# =========================
 home-assistant_v2.db
 home-assistant_v2.db-shm
 home-assistant_v2.db-wal
-
-# Common HA state dirs
-.storage/
 home-assistant.log*
 home-assistant_*.log*
+*.db-shm
+*.db-wal
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Recorder/state internals (UI storage, tokens, etc.)
+.storage/
+
+# Python deps dir die HA zelf kan aanmaken
 deps/
 
-**/*/.storage
+# ZHA / Zigbee (sqlite) database
 zigbee.db
 zigbee.db-shm
 zigbee.db-wal
+
+# Z-Wave (OZW / Z-Wave JS) artefacts
+ozwcache_*.xml
+zwcfg_*.xml
+.zwave_js/
+
+# Supervisor/OS gerelateerde bestanden
+.HA_VERSION
+.cloud/
+.homekit.state
+.ios.conf
+.blueprint_cache/
+.tmp/
+tmp/
+tts/
+
+# Backups/snapshots
+backup/
+backups/
+*.tar
+*.tar.gz
+*.tgz
+
+# Media & cache (optioneel: comment deze uit als je media wil tracken)
+media/
+
+# =========================
+# HACS & custom frontend
+# =========================
+# HACS downloads in www/community (doorgaans niet committen)
+www/community/
+
+# HACS custom components (typisch niet committen).
+# Wil je EIGEN custom componenten wél in Git, whitelist ze onderaan.
+custom_components/*/
+# Voorbeeld whitelist (vervang door jouw namen):
+#!custom_components/your_integration_name/**
+
+# =========================
+# Secrets/credentials (NOOIT committen)
+# =========================
+secrets.yaml
+*.key
+*.pem
+*.crt
+*.csr
+*.pfx
+*.p12
+*.token
+*.tok
+*.auth
+*.cred
+*.credentials
+.google*token*.json
+google_*token*.json
+oauth*.json
+*.bak-secret
+*.enc
+*.age
+
+# Soms gegenereerde configbestanden van integraties
+.google_calendars.yaml
+
+# =========================
+# Dev tooling (Python, Node, build, containers)
+# =========================
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.eggs/
+.venv/
+venv/
+pip-wheel-metadata/
+
+# Node/Frontend
+node_modules/
+dist/
+build/
+.cache/
+.npm/
+.yarn/
+.pnpm-store/
+
+# Containers & env
+.env
+.env.*
+docker-compose.override.yml
+
+# =========================
+# Editors/OS rotzooi
+# =========================
+.vscode/
+.idea/
+*.code-workspace
+*.iml
+*.sublime-*
+*.swp
+*.tmp
+*.temp
+*.log
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =========================
+# Overige nuttige uitsluitingen
+# =========================
+# Lokale scripts/notes
+*.bak
+*.old
+*.orig
+*.retry
