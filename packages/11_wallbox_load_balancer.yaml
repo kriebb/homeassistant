@@ -219,6 +219,7 @@ template:
 automation:
   - alias: "EV Load Balancer - Adjust Charging Amps"
     id: ev_load_balancer_adjust_charging_amps
+    enabled: false  # UITGESCHAKELD - Nieuwe versie in package 12 wordt gebruikt
     mode: restart
     trigger:
       - platform: state

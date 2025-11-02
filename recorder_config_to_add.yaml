@@ -45,6 +45,14 @@ recorder:
       - binary_sensor.*_update_available
       - sensor.*_newest_version
       - sensor.*_last_restart
+      # Network/System sensors
+      - sensor.networkhdd2_*_temperatuur
+      - sensor.fritz_box_*_temperatuur
+      # High frequency power sensors - keep daily totals only
+      - sensor.eth_dongle_pro_current_*
+      - sensor.eth_dongle_pro_voltage_*
+      # Printer ink levels
+      - sensor.lexmark_*
       
     entities:
       # Specific entities that update too frequently
