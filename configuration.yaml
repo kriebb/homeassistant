@@ -32,4 +32,7 @@ lovelace:
       icon: mdi:flash-outline
       show_in_sidebar: true
       filename: dashboards/simple_energy_management.yaml
+
+# Recorder optimization
+recorder: !include recorder.yaml
       
