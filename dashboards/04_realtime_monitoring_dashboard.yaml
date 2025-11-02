@@ -1,0 +1,208 @@
+# Real-time Monitoring Dashboard
+# Live monitoring van verbruik en capaciteit
+
+views:
+  - title: Live Monitor
+    path: live-monitor
+    icon: mdi:monitor-dashboard
+    cards:
+      # Header
+      - type: custom:mushroom-title-card
+        title: Real-time Monitor
+        subtitle: Live verbruik en waarschuwingen
+        
+      # Live power gauge met animatie
+      - type: gauge
+        entity: sensor.ev_house_power
+        name: Live Verbruik
+        unit: W
+        min: 0
+        max: 8000
+        needle: true
+        severity:
+          green: 0
+          yellow: 3000
+          orange: 4362
+          red: 5000
+          
+      # Capaciteit status cards
+      - type: horizontal-stack
+        cards:
+          - type: custom:mushroom-template-card
+            primary: "{{ states('sensor.capaciteit_status').split('(')[0] }}"
+            secondary: "{{ state_attr('sensor.capaciteit_status', 'percentage_used') }}% gebruikt"
+            icon: mdi:gauge
+            icon_color: >
+              {% set percentage = state_attr('sensor.capaciteit_status', 'percentage_used') | float(0) %}
+              {% if percentage < 50 %} green
+              {% elif percentage < 80 %} yellow
+              {% elif percentage < 95 %} orange
+              {% else %} red
+              {% endif %}
+              
+          - type: custom:mushroom-template-card
+            primary: Beschikbaar
+            secondary: "{{ states('sensor.available_capacity') }} W"
+            icon: mdi:arrow-down-bold
+            icon_color: >
+              {% set available = states('sensor.available_capacity') | float(0) %}
+              {% if available > 2000 %} green
+              {% elif available > 1000 %} yellow
+              {% elif available > 500 %} orange
+              {% else %} red
+              {% endif %}
+              
+      # Waarschuwingen
+      - type: conditional
+        conditions:
+          - entity: binary_sensor.new_month_peak_warning
+            state: "on"
+        card:
+          type: custom:mushroom-template-card
+          primary: ⚠️ NIEUWE MAANDPIEK!
+          secondary: >
+            Je stelt een nieuwe piek in: {{ states('sensor.ev_house_power') }} W
+            (was {{ states('sensor.home_import_power_peak_31d') }} W)
+          icon: mdi:alert
+          icon_color: red
+          fill_container: true
+          card_mod:
+            style: |
+              ha-card {
+                background-color: rgba(255, 0, 0, 0.1);
+                animation: pulse 2s infinite;
+              }
+              @keyframes pulse {
+                0% { opacity: 0.8; }
+                50% { opacity: 1; }
+                100% { opacity: 0.8; }
+              }
+              
+      - type: conditional
+        conditions:
+          - entity: binary_sensor.capaciteit_boven_5_kW
+            state: "on"
+        card:
+          type: custom:mushroom-template-card
+          primary: Hoog Verbruik!
+          secondary: "Boven 5 kW: {{ states('sensor.ev_house_power') }} W"
+          icon: mdi:flash-alert
+          icon_color: orange
+          
+      # Live grafiek
+      - type: custom:apexcharts-card
+        header:
+          show: true
+          title: Live Verbruik (10 min)
+        graph_span: 10min
+        update_interval: 5s
+        series:
+          - entity: sensor.ev_house_power
+            name: Totaal
+            stroke_width: 3
+            color: blue
+          - entity: sensor.ev_estimated_charger_power
+            name: EV Laden
+            type: area
+            color: green
+            opacity: 0.3
+          - entity: sensor.totaal_slimme_apparaten_verbruik
+            name: Apparaten
+            type: area
+            color: orange
+            opacity: 0.3
+        yaxis:
+          - min: 0
+            decimals: 0
+            
+      # Kwartier countdown
+      - type: custom:mushroom-template-card
+        primary: Kwartier Timer
+        secondary: >
+          {% set minute = now().minute %}
+          {% set mins_in_quarter = minute % 15 %}
+          {% set remaining = 15 - mins_in_quarter %}
+          {{ remaining }} minuten tot nieuw kwartier
+          {% if remaining <= 5 and states('sensor.ev_house_power') | float > states('sensor.home_import_power_peak_31d') | float %}
+          - ⚠️ NIEUWE PIEK!
+          {% endif %}
+        icon: mdi:timer
+        icon_color: >
+          {% set minute = now().minute %}
+          {% set mins_in_quarter = minute % 15 %}
+          {% set remaining = 15 - mins_in_quarter %}
+          {% if remaining <= 5 %} orange
+          {% else %} blue
+          {% endif %}
+          
+      # Actieve verbruikers
+      - type: custom:auto-entities
+        card:
+          type: entities
+          title: Actieve Verbruikers Nu
+        filter:
+          template: |
+            {% set devices = [
+              {'entity': 'sensor.wallbox_kristof_riebbels_laadvermogen', 'name': 'EV Laden', 'threshold': 100},
+              {'entity': 'sensor.vaatwas_power', 'name': 'Vaatwasser', 'threshold': 10},
+              {'entity': 'sensor.metered_wall_plug_switch_power', 'name': 'Wasmachine', 'threshold': 10},
+              {'entity': 'sensor.droogkast_power', 'name': 'Droogkast', 'threshold': 10},
+              {'entity': 'sensor.waterker_power', 'name': 'Boiler', 'threshold': 10},
+              {'entity': 'sensor.koelkast_driepvries_power', 'name': 'Koelkast', 'threshold': 50}
+            ] %}
+            {% for device in devices %}
+              {% if states(device.entity) | float(0) > device.threshold %}
+                {{
+                  {
+                    'entity': device.entity,
+                    'name': device.name,
+                    'secondary_info': 'last-changed',
+                    'icon': 'mdi:flash'
+                  }
+                }},
+              {% endif %}
+            {% endfor %}
+            
+      # Quick actions
+      - type: horizontal-stack
+        cards:
+          - type: custom:mushroom-entity-card
+            entity: input_boolean.ev_force_max
+            name: Force Max EV
+            tap_action:
+              action: toggle
+            icon_color: >
+              {% if is_state('input_boolean.ev_force_max', 'on') %}
+                red
+              {% else %}
+                grey
+              {% endif %}
+              
+          - type: custom:mushroom-entity-card
+            entity: input_boolean.smart_spreading_active
+            name: Slim Spreiden
+            tap_action:
+              action: toggle
+            icon_color: >
+              {% if is_state('input_boolean.smart_spreading_active', 'on') %}
+                green
+              {% else %}
+                grey
+              {% endif %}
+              
+      # Drempel status
+      - type: entities
+        title: Capaciteit Drempels
+        entities:
+          - entity: binary_sensor.capaciteit_boven_5_kW
+            name: Boven 5 kW
+          - entity: binary_sensor.capaciteit_boven_6_kW
+            name: Boven 6 kW
+          - entity: binary_sensor.capaciteit_boven_7_kW
+            name: Boven 7 kW
+          - type: divider
+          - type: custom:template-entity-row
+            entity: sensor.ruimte_tot_volgende_kw_drempel
+            name: Tot volgende kW
+            secondary: "Huidige: {{ (states('sensor.home_import_power_peak_31d') | float / 1000) | round(1) }} kW"
+            state: "{{ states('sensor.ruimte_tot_volgende_kw_drempel') }} W"

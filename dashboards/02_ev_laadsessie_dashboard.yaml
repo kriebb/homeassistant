@@ -1,0 +1,172 @@
+# EV Laadsessie Dashboard
+# Monitor je auto laden met kosten en load balancing
+
+views:
+  - title: EV Laden
+    path: ev-laden
+    icon: mdi:ev-station
+    cards:
+      # Header
+      - type: custom:mushroom-title-card
+        title: Kia EV3 Laadsessie
+        subtitle: Real-time monitoring en kosten
+        
+      # Laadstatus
+      - type: horizontal-stack
+        cards:
+          - type: custom:mushroom-entity-card
+            entity: sensor.wallbox_kristof_riebbels_laadstatus
+            name: Laadstatus
+            icon: mdi:battery-charging
+            icon_color: >
+              {% if states('sensor.wallbox_kristof_riebbels_laadvermogen') | float > 100 %}
+                green
+              {% else %}
+                grey
+              {% endif %}
+                
+          - type: custom:mushroom-template-card
+            primary: Laadvermogen
+            secondary: "{{ states('sensor.wallbox_kristof_riebbels_laadvermogen') | round(0) }} W"
+            icon: mdi:flash
+            icon_color: >
+              {% set power = states('sensor.wallbox_kristof_riebbels_laadvermogen') | float(0) %}
+              {% if power > 5000 %} orange
+              {% elif power > 100 %} green
+              {% else %} grey
+              {% endif %}
+              
+      # Ampere control monitoring
+      - type: custom:apexcharts-card
+        header:
+          show: true
+          title: Laadstroom Aanpassingen
+        graph_span: 2h
+        update_interval: 10s
+        series:
+          - entity: sensor.wallbox_kristof_riebbels_max_laadstroom
+            name: Ampere Instelling
+            type: stepline
+            color: blue
+            stroke_width: 3
+            show:
+              extremas: true
+          - entity: input_number.ev_last_set_current_a
+            name: Target Ampere
+            type: stepline
+            color: green
+            opacity: 0.5
+            stroke_width: 2
+        yaxis:
+          - min: 0
+            max: 16
+            decimals: 0
+            apex_config:
+              title:
+                text: Ampere (A)
+                
+      # Load balancer status
+      - type: entities
+        title: Load Balancer Status
+        entities:
+          - entity: binary_sensor.ev_load_balancer_ready
+            name: Load Balancer Actief
+          - entity: input_boolean.ev_force_max
+            name: Force Maximum Laden
+          - type: divider
+          - type: custom:template-entity-row
+            entity: sensor.ev_available_capacity
+            name: Beschikbare Capaciteit
+            secondary: "Voor EV laden"
+            state: "{{ states('sensor.ev_available_capacity') | round(0) }} W"
+          - type: custom:template-entity-row
+            entity: sensor.ev_non_ev_load
+            name: Huis Verbruik (zonder EV)
+            state: "{{ states('sensor.ev_non_ev_load') | round(0) }} W"
+            
+      # Laadsessie kosten
+      - type: custom:mushroom-template-card
+        primary: Laadsessie Kosten
+        secondary: >
+          {% set kwh_price = states('input_number.elektriciteit_energieprijs') | float(0.25) %}
+          {% set power_w = states('sensor.wallbox_kristof_riebbels_laadvermogen') | float(0) %}
+          {% set power_kw = power_w / 1000 %}
+          {% set cost_per_hour = power_kw * kwh_price %}
+          {% if power_w > 100 %}
+            €{{ cost_per_hour | round(2) }}/uur bij {{ power_kw | round(1) }} kW
+          {% else %}
+            Niet aan het laden
+          {% endif %}
+        icon: mdi:cash
+        icon_color: green
+        badge_icon: >
+          {% if states('sensor.wallbox_kristof_riebbels_laadvermogen') | float > 100 %}
+            mdi:play
+          {% else %}
+            mdi:pause
+          {% endif %}
+        badge_color: >
+          {% if states('sensor.wallbox_kristof_riebbels_laadvermogen') | float > 100 %}
+            green
+          {% else %}
+            grey
+          {% endif %}
+          
+      # Vermogen historie
+      - type: custom:apexcharts-card
+        header:
+          show: true
+          title: Laadvermogen Historie
+        graph_span: 6h
+        series:
+          - entity: sensor.wallbox_kristof_riebbels_laadvermogen
+            name: Laadvermogen
+            type: area
+            color: green
+            opacity: 0.4
+            stroke_width: 2
+            group_by:
+              func: avg
+              duration: 5min
+        yaxis:
+          - min: 0
+            decimals: 0
+            apex_config:
+              title:
+                text: Vermogen (W)
+                
+      # Aanpassingen log
+      - type: entities
+        title: Laatste Aanpassingen
+        entities:
+          - type: custom:template-entity-row
+            entity: input_datetime.ev_last_adjustment_time
+            name: Laatste Aanpassing
+            secondary: "{{ states('sensor.ev_tijd_sinds_laatste_aanpassing') | int }} seconden geleden"
+            icon: mdi:clock
+          - type: custom:template-entity-row
+            entity: sensor.ev_aanpassing_toegestaan
+            name: Volgende Aanpassing
+            secondary: >
+              {% if is_state('sensor.ev_aanpassing_toegestaan', 'True') %}
+                Toegestaan
+              {% else %}
+                Wacht {{ 60 - (states('sensor.ev_tijd_sinds_laatste_aanpassing') | int) }} sec
+              {% endif %}
+            icon: mdi:timer
+            
+      # Configuratie
+      - type: entities
+        title: Instellingen
+        show_header_toggle: false
+        entities:
+          - entity: input_number.ev_min_adjustment_amp
+            name: Min. Aanpassing
+          - entity: input_number.ev_adjustment_cooldown_seconds
+            name: Cooldown Tijd
+          - entity: input_number.ev_step_amp
+            name: Stap Grootte
+          - entity: input_number.wallbox_min_amp
+            name: Min. Ampere
+          - entity: input_number.wallbox_max_amp
+            name: Max. Ampere

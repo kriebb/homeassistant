@@ -92,8 +92,8 @@ template:
             {% set effective_limit = [month_peak, contract_w] | max %}
             {{ (current_power / effective_limit * 100) | round(1) }}
             
-      - name: "Fluvius capaciteit limiet"
-        unique_id: fluvius_capacity_limit  
+      - name: "Fluvius capaciteit limiet (België)"
+        unique_id: fluvius_capacity_limit_belgie  
         state: >
           {% set month_peak = states('sensor.home_import_power_peak_31d') | float(0) %}
           {% set contract_w = states('input_number.capaciteitstarief_contract_kw') | float(5) * 1000 %}

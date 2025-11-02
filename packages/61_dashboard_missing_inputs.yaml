@@ -97,7 +97,7 @@ template:
       # Wallbox switch (alias for existing functionality)
       - name: "Wallbox laden"
         unique_id: wallbox_laden
-        value_template: >
+        state: >
           {{ is_state('switch.wallbox_kristof_riebbels_pauzeren_hervatten', 'on') }}
         turn_on:
           service: switch.turn_on
@@ -112,7 +112,7 @@ template:
       # Appliance switches with blocking
       - name: "Wasmachine met blokkering"
         unique_id: wasmachine_met_blokkering
-        value_template: >
+        state: >
           {{ is_state('switch.metered_wall_plug_switch', 'on') }}
         turn_on:
           - condition: or
@@ -134,7 +134,7 @@ template:
         
       - name: "Droogkast met blokkering"
         unique_id: droogkast_met_blokkering
-        value_template: >
+        state: >
           {{ is_state('switch.droogkast', 'on') }}
         turn_on:
           - condition: or
@@ -156,7 +156,7 @@ template:
         
       - name: "Vaatwasser met blokkering"
         unique_id: vaatwasser_met_blokkering
-        value_template: >
+        state: >
           {{ is_state('switch.vaatwas', 'on') }}
         turn_on:
           - condition: or

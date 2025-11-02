@@ -20,17 +20,43 @@ scene: !include scenes.yaml
 lovelace:
   mode: storage
   dashboards:
+    # Nieuwe moderne dashboards
+    capaciteitstarief:
+      mode: yaml
+      title: Capaciteitstarief
+      icon: mdi:gauge
+      show_in_sidebar: true
+      filename: dashboards/01_capaciteitstarief_dashboard.yaml
+    ev-laden:
+      mode: yaml
+      title: EV Laden
+      icon: mdi:ev-station
+      show_in_sidebar: true
+      filename: dashboards/02_ev_laadsessie_dashboard.yaml
+    energie-totaal:
+      mode: yaml
+      title: Energie Totaal
+      icon: mdi:home-lightning-bolt
+      show_in_sidebar: true
+      filename: dashboards/03_totaal_energie_dashboard.yaml
+    live-monitor:
+      mode: yaml
+      title: Live Monitor
+      icon: mdi:monitor-dashboard
+      show_in_sidebar: true
+      filename: dashboards/04_realtime_monitoring_dashboard.yaml
+    # Legacy dashboards (kunnen later verwijderd worden)
     energy-management:
       mode: yaml
-      title: Energy Management
+      title: Energy Management (Legacy)
       icon: mdi:flash
-      show_in_sidebar: true
+      show_in_sidebar: false
       filename: dashboards/energy_management.yaml
-    simple-energy:  # Add this new dashboard
+    simple-energy:
       mode: yaml
-      title: Simple Energy
+      title: Simple Energy (Legacy)
       icon: mdi:flash-outline
-      show_in_sidebar: true
+      show_in_sidebar: false
       filename: dashboards/simple_energy_management.yaml
 
 # Recorder optimization

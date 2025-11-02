@@ -1,0 +1,145 @@
+# Capaciteitstarief Dashboard
+# Monitor je maandpieken en voorkom onnodige kosten
+
+views:
+  - title: Capaciteitstarief
+    path: capaciteitstarief
+    icon: mdi:gauge
+    cards:
+      # Header met actuele status
+      - type: custom:mushroom-title-card
+        title: Capaciteitstarief Monitor
+        subtitle: Beheer je maandpieken slim
+        
+      # Actuele capaciteit gauge
+      - type: gauge
+        entity: sensor.ev_house_power
+        name: Huidig Verbruik
+        unit: W
+        min: 0
+        max: 8000
+        needle: true
+        severity:
+          green: 0
+          yellow: 3500
+          red: 4362
+        segments:
+          - from: 0
+            color: '#44ff44'
+          - from: 3000
+            color: '#ffff44'
+          - from: 4362
+            color: '#ff9944'
+          - from: 5000
+            color: '#ff4444'
+            
+      # Piekwaardes overzicht
+      - type: entities
+        title: Piekwaardes
+        entities:
+          - type: custom:template-entity-row
+            entity: sensor.home_import_power_peak_31d
+            name: Huidige Maandpiek (31 dagen)
+            secondary: "= {{ (states('sensor.home_import_power_peak_31d') | float / 1000) | round(2) }} kW"
+            state: "{{ states('sensor.home_import_power_peak_31d') | round(0) }} W"
+            icon: mdi:arrow-up-bold
+            
+          - type: custom:template-entity-row
+            entity: sensor.voorspelde_maandpiek_indien_nu_stoppen
+            name: Als je nu zou stoppen
+            secondary: >
+              {% if states('sensor.ev_house_power') | float > states('sensor.home_import_power_peak_31d') | float %}
+                NIEUWE PIEK! (+{{ (states('sensor.ev_house_power') | float - states('sensor.home_import_power_peak_31d') | float) | round(0) }} W)
+              {% else %}
+                Geen nieuwe piek
+              {% endif %}
+            state: "{{ states('sensor.voorspelde_maandpiek_indien_nu_stoppen') | round(0) }} W"
+            
+          - type: custom:template-entity-row
+            entity: sensor.ruimte_tot_volgende_kw_drempel
+            name: Ruimte tot volgende kW
+            secondary: "Volgende drempel: {{ ((states('sensor.home_import_power_peak_31d') | float / 1000) | int) + 1 }} kW"
+            state: "{{ states('sensor.ruimte_tot_volgende_kw_drempel') | round(0) }} W"
+            
+      # Kosten berekening
+      - type: custom:mushroom-template-card
+        primary: Capaciteitstarief Kost
+        secondary: >
+          €{{ states('sensor.geschatte_capaciteitstarief_kost') | round(2) }}/maand
+          ({{ (states('sensor.home_import_power_peak_31d') | float / 1000) | round(2) }} kW × €{{ states('input_number.capaciteitstarief_prijs_per_kw') }})
+        icon: mdi:cash
+        icon_color: >
+          {% set kw = states('sensor.home_import_power_peak_31d') | float / 1000 %}
+          {% if kw < 4 %} green
+          {% elif kw < 5 %} yellow
+          {% elif kw < 6 %} orange
+          {% else %} red
+          {% endif %}
+        badge_icon: >
+          {% if is_state('binary_sensor.new_month_peak_warning', 'on') %}
+            mdi:alert
+          {% endif %}
+        badge_color: red
+        
+      # Historie grafiek
+      - type: custom:apexcharts-card
+        header:
+          show: true
+          title: Piekverloop Laatste 24u
+        graph_span: 24h
+        update_interval: 1min
+        series:
+          - entity: sensor.ev_house_power
+            name: Verbruik
+            type: line
+            color: blue
+            group_by:
+              func: max
+              duration: 15min
+          - entity: sensor.home_import_power_peak_31d
+            name: Maandpiek
+            type: line
+            color: red
+            stroke_width: 2
+        yaxis:
+          - min: 0
+            max: ~6000
+            decimals: 0
+            apex_config:
+              title:
+                text: Vermogen (W)
+                
+      # Kwartier monitoring
+      - type: entities
+        title: Kwartier Monitoring
+        entities:
+          - type: custom:template-entity-row
+            entity: sensor.kwartier_gemiddeld_vermogen
+            name: Kwartier Vermogen
+            secondary: >
+              {% set minute = now().minute %}
+              {% set mins_in_quarter = minute % 15 %}
+              Nog {{ 15 - mins_in_quarter }} min in dit kwartier
+            icon: mdi:timer-sand
+            
+          - entity: binary_sensor.hoog_verbruik_laatste_5_min_kwartier
+            name: Hoog verbruik einde kwartier
+            
+      # Tips card
+      - type: markdown
+        content: |
+          ## 💡 Tips Capaciteitstarief
+          
+          **Huidige situatie:**
+          - Maandpiek: **{{ (states('sensor.home_import_power_peak_31d') | float / 1000) | round(2) }} kW**
+          - Kost: **€{{ states('sensor.geschatte_capaciteitstarief_kost') | round(2) }}/maand**
+          
+          **Bespaar tips:**
+          1. Blijf onder je huidige piek - geen extra kosten
+          2. Elke kW extra = €{{ states('input_number.capaciteitstarief_prijs_per_kw') }} × 12 maanden
+          3. Start zware verbruikers gespreid
+          4. Laad je EV wanneer andere apparaten uit zijn
+          
+          {% if states('sensor.energie_optimalisatie_potentieel') != 'Goed geoptimaliseerd' %}
+          **Potentiële besparing:** {{ states('sensor.energie_optimalisatie_potentieel') }}
+          {% endif %}
