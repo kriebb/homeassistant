@@ -1,0 +1,152 @@
+# Totale Energie Kosten - Elektriciteit + Gas
+# Gecombineerd overzicht voor volledig energie inzicht
+
+template:
+  - sensor:
+      # Totale energie kosten vandaag
+      - name: "Totale energie kosten vandaag"
+        unique_id: total_energy_cost_today
+        state: >
+          {% set elec = states('sensor.daily_energy_cost') | float(0) %}
+          {% set gas = states('sensor.gas_kosten_vandaag') | float(0) %}
+          {{ (elec + gas) | round(2) }}
+        unit_of_measurement: "€"
+        device_class: monetary
+        attributes:
+          electricity: "€{{ states('sensor.daily_energy_cost') | float(0) | round(2) }}"
+          gas: "€{{ states('sensor.gas_kosten_vandaag') | float(0) | round(2) }}"
+          
+      # Verhouding elektriciteit vs gas
+      - name: "Energie kosten verhouding"
+        unique_id: energy_cost_ratio
+        state: >
+          {% set elec = states('sensor.daily_energy_cost') | float(0) %}
+          {% set gas = states('sensor.gas_kosten_vandaag') | float(0) %}
+          {% set total = elec + gas %}
+          {% if total > 0 %}
+            Elektriciteit {{ ((elec / total) * 100) | round(0) }}% - Gas {{ ((gas / total) * 100) | round(0) }}%
+          {% else %}
+            Geen verbruik
+          {% endif %}
+        attributes:
+          electricity_percentage: >
+            {% set elec = states('sensor.daily_energy_cost') | float(0) %}
+            {% set gas = states('sensor.gas_kosten_vandaag') | float(0) %}
+            {% set total = elec + gas %}
+            {{ ((elec / total) * 100) | round(1) if total > 0 else 0 }}
+          gas_percentage: >
+            {% set elec = states('sensor.daily_energy_cost') | float(0) %}
+            {% set gas = states('sensor.gas_kosten_vandaag') | float(0) %}
+            {% set total = elec + gas %}
+            {{ ((gas / total) * 100) | round(1) if total > 0 else 0 }}
+            
+      # Geschatte maandelijkse totale kosten
+      - name: "Totale energie kosten schatting maand"
+        unique_id: total_energy_cost_month_estimate
+        state: >
+          {% set days = now().day %}
+          {% set daily_total = states('sensor.totale_energie_kosten_vandaag') | float(0) %}
+          {% set month_estimate = (daily_total / days * 30) if days > 0 else 0 %}
+          
+          {# Voeg capaciteitstarief toe #}
+          {% set capacity_cost = states('sensor.geschatte_capaciteitstarief_kost') | float(0) %}
+          
+          {{ (month_estimate + capacity_cost) | round(2) }}
+        unit_of_measurement: "€"
+        device_class: monetary
+        attributes:
+          energy_costs: "€{{ ((states('sensor.totale_energie_kosten_vandaag') | float(0) / now().day * 30) if now().day > 0 else 0) | round(2) }}"
+          capacity_tariff: "€{{ states('sensor.geschatte_capaciteitstarief_kost') | float(0) | round(2) }}"
+          
+      # Optimalisatie potentieel
+      - name: "Energie optimalisatie potentieel"
+        unique_id: energy_optimization_potential
+        state: >
+          {% set current_peak = states('sensor.home_import_power_peak_31d') | float(0) / 1000 %}
+          {% set optimal_peak = 4.0 %}  # Streef naar 4 kW
+          {% set savings_per_kw = 3.0 %}  # €3/kW/maand
+          
+          {% if current_peak > optimal_peak %}
+            {% set potential_savings = (current_peak - optimal_peak) * savings_per_kw %}
+            € {{ potential_savings | round(2) }}/maand mogelijk
+          {% else %}
+            Goed geoptimaliseerd
+          {% endif %}
+        attributes:
+          current_peak_kw: "{{ (states('sensor.home_import_power_peak_31d') | float(0) / 1000) | round(2) }}"
+          target_peak_kw: "4.0"
+          potential_monthly_savings: >
+            {% set current_peak = states('sensor.home_import_power_peak_31d') | float(0) / 1000 %}
+            {% set optimal_peak = 4.0 %}
+            {% set savings_per_kw = 3.0 %}
+            {{ ((current_peak - optimal_peak) * savings_per_kw) | round(2) if current_peak > optimal_peak else 0 }}
+
+# Dashboard helpers voor slimme spreiding
+input_boolean:
+  smart_spreading_active:
+    name: Slimme spreiding actief
+    initial: true
+    icon: mdi:calendar-clock
+    
+  peak_protection_active:
+    name: Piek bescherming actief
+    initial: true
+    icon: mdi:shield-check
+
+input_select:
+  energy_priority_mode:
+    name: Energie prioriteit modus
+    options:
+      - Comfort
+      - Gebalanceerd
+      - Besparing
+      - Maximale besparing
+    initial: Gebalanceerd
+    icon: mdi:tune
+
+# Slimme spreiding automation
+automation:
+  - alias: "Energie: Slimme apparaat spreiding"
+    id: smart_appliance_spreading
+    trigger:
+      - platform: state
+        entity_id:
+          - switch.vaatwas
+          - switch.metered_wall_plug_switch  # Wasmachine
+          - switch.droogkast
+        to: "on"
+    condition:
+      - condition: state
+        entity_id: input_boolean.smart_spreading_active
+        state: "on"
+      - condition: numeric_state
+        entity_id: sensor.ev_house_power
+        above: 3500  # Als al boven 3.5 kW
+    action:
+      - choose:
+          # Als meerdere apparaten tegelijk aan willen
+          - conditions:
+              - condition: template
+                value_template: >
+                  {% set devices_on = 0 %}
+                  {% if is_state('switch.vaatwas', 'on') %}{% set devices_on = devices_on + 1 %}{% endif %}
+                  {% if is_state('switch.metered_wall_plug_switch', 'on') %}{% set devices_on = devices_on + 1 %}{% endif %}
+                  {% if is_state('switch.droogkast', 'on') %}{% set devices_on = devices_on + 1 %}{% endif %}
+                  {{ devices_on > 1 }}
+            sequence:
+              - service: switch.turn_off
+                target:
+                  entity_id: "{{ trigger.entity_id }}"
+              - service: persistent_notification.create
+                data:
+                  title: "Slimme spreiding actief"
+                  message: >
+                    {{ trigger.entity_id | replace('switch.', '') | replace('_', ' ') | title }} uitgesteld.
+                    Te veel apparaten tegelijk zou de capaciteit overschrijden.
+                    Het apparaat start automatisch wanneer er ruimte is.
+                  notification_id: smart_spreading_delay
+              - delay:
+                  minutes: 15
+              - service: switch.turn_on
+                target:
+                  entity_id: "{{ trigger.entity_id }}"

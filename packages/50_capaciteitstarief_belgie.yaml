@@ -11,6 +11,15 @@ input_number:
     unit_of_measurement: kW
     icon: mdi:file-document
     
+  capaciteitstarief_minimum_bijdrage_kw:
+    name: Minimum bijdrage capaciteitstarief
+    min: 2.5
+    max: 2.5
+    initial: 2.5
+    unit_of_measurement: kW
+    icon: mdi:flash-outline
+    mode: box
+    
   capaciteitstarief_extra_marge_w:
     name: Extra veiligheidsmarge
     min: 0
@@ -20,8 +29,28 @@ input_number:
     unit_of_measurement: W
     icon: mdi:shield-check
 
+# Utility meter voor maandelijkse piek tracking
+utility_meter:
+  monthly_peak_tracker:
+    source: sensor.eth_dongle_pro_power_delivered
+    cycle: monthly
+    
 template:
   - sensor:
+      # Simulatie van 12-maanden gemiddelde (werkelijke data komt van Fluvius/Energie.be)
+      - name: "Geschatte gemiddelde maandpiek 12M"
+        unique_id: estimated_average_monthly_peak_12m
+        state: >
+          {% set current_peak = states('sensor.home_import_power_peak_31d') | float(0) %}
+          {% set minimum = states('input_number.capaciteitstarief_minimum_bijdrage_kw') | float(2.5) * 1000 %}
+          {# In werkelijkheid is dit het gemiddelde van 12 maandpieken #}
+          {# We gebruiken de huidige piek als conservatieve schatting #}
+          {{ [current_peak, minimum] | max | round(0) }}
+        unit_of_measurement: W
+        attributes:
+          note: "Dit is een schatting - werkelijke 12M gemiddelde komt van je energiefactuur"
+          current_month_peak_w: "{{ states('sensor.home_import_power_peak_31d') }}"
+          months_in_average: "1 (schatting)"
       - name: "Capaciteitstarief status"
         unique_id: capaciteit_status
         state: >
@@ -67,10 +96,14 @@ template:
         state: >
           {% set month_peak = states('sensor.home_import_power_peak_31d') | float(0) %}
           {% set contract_w = states('input_number.capaciteitstarief_contract_kw') | float(5) * 1000 %}
-          {{ [month_peak, contract_w] | max | round(0) }}
+          {% set minimum_w = states('input_number.capaciteitstarief_minimum_bijdrage_kw') | float(2.5) * 1000 %}
+          {{ [month_peak, contract_w, minimum_w] | max | round(0) }}
         unit_of_measurement: W
         availability: >
           {{ states('sensor.home_import_power_peak_31d') not in ['unknown', 'unavailable', None] }}
+        attributes:
+          info: "Gebruikt hoogste van: maandpiek, contract, of 2.5kW minimum"
+          minimum_bijdrage_w: "{{ states('input_number.capaciteitstarief_minimum_bijdrage_kw') | float(2.5) * 1000 }}"
           
       - name: "Beschikbaar vermogen"
         unique_id: beschikbaar_vermogen

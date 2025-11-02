@@ -217,164 +217,165 @@ template:
             {{ tracker.missing }}
 
 automation:
-  - alias: "EV Load Balancer - Adjust Charging Amps"
-    id: ev_load_balancer_adjust_charging_amps
-    enabled: false  # UITGESCHAKELD - Nieuwe versie in package 12 wordt gebruikt
-    mode: restart
-    trigger:
-      - platform: state
-        entity_id:
-          - sensor.ev_house_power
-          - sensor.ev_capacity_limit
-          - sensor.ev_non_ev_load
-        for: "00:00:20"
-      - platform: time_pattern
-        seconds: "/30"
-      - platform: homeassistant
-        event: start
-    condition:
-      - condition: state
-        entity_id: input_boolean.ev_force_max
-        state: "off"
-      - condition: state
-        entity_id: binary_sensor.ev_load_balancer_ready
-        state: "on"
-    action:
-      - variables:
-          voltage_avg: >
-            {% set readings = namespace(values=[]) %}
-            {% for candidate in [
-              'sensor.eth_dongle_pro_voltage_l1',
-              'sensor.eth_dongle_pro_voltage_l2',
-              'sensor.eth_dongle_pro_voltage_l3'
-            ] %}
-              {% set raw = states(candidate) %}
-              {% if raw not in ['unknown', 'unavailable', None] %}
-                {% set readings.values = readings.values + [raw | float(0)] %}
-              {% endif %}
-            {% endfor %}
-            {% if readings.values %}
-              {{ (readings.values | sum / readings.values | length) | round(1) }}
-            {% else %}
-              230
-            {% endif %}
-          limit_w: "{{ states('sensor.ev_capacity_limit') | float(0) }}"
-          margin_w: "{{ states('input_number.ev_margin_w') | float(0) }}"
-          hysteresis_w: "{{ states('input_number.ev_hysteresis_w') | float(0) }}"
-          step_amp: "{{ states('input_number.ev_step_amp') | float(1) }}"
-          min_amp: "{{ states('input_number.wallbox_min_amp') | float(6) }}"
-          max_amp: "{{ states('input_number.wallbox_max_amp') | float(16) }}"
-          helper_amp: "{{ states('input_number.ev_last_set_current_a') | float(0) }}"
-          non_ev_w: "{{ states('sensor.ev_non_ev_load') | float(0) }}"
-      - variables:
-          measured_current_amp: >
-            {% set current = namespace(value = helper_amp) %}
-            {% set voltage_local = voltage_avg | float(230) %}
-            {% if voltage_local <= 0 %}
-              {% set voltage_local = 230 %}
-            {% endif %}
-            {% set power = states('sensor.wallbox_kristof_riebbels_laadvermogen') %}
-            {% if power not in ['unknown', 'unavailable', None] %}
-              {% set current.value = ((power | float(0)) * 1000 / voltage_local) %}
-            {% else %}
-              {% for candidate in [
-                'sensor.wallbox_kristof_riebbels_max_laadstroom',
-                'sensor.wallbox_kristof_riebbels_max_beschikbaar_vermogen'
-              ] %}
-                {% set raw = states(candidate) %}
-                {% if raw not in ['unknown', 'unavailable', None] %}
-                  {% set current.value = raw | float(0) %}
-                  {% break %}
-                {% endif %}
-              {% endfor %}
-            {% endif %}
-            {{ current.value }}
-          current_amp: "{{ measured_current_amp | float(0) }}"
-          available_w: >
-            {% set raw = limit_w - margin_w - non_ev_w %}
-            {{ [raw, 0] | max }}
-          target_amp_calc: >
-            {% set v = voltage_avg | float(230) %}
-            {% if v <= 0 %}
-              {% set v = 230 %}
-            {% endif %}
-            {{ (available_w / v) | float(0) }}
-          ramp_target_amp: >
-            {% set current = current_amp %}
-            {% set target = target_amp_calc %}
-            {% set step = step_amp %}
-            {% if target > current + step %}
-              {{ current + step }}
-            {% elif target < current - step %}
-              {{ current - step }}
-            {% else %}
-              {{ target }}
-            {% endif %}
-          target_amp_clamped: >
-            {% set t = ramp_target_amp %}
-            {% if t > max_amp %}
-              {{ max_amp }}
-            {% elif t < min_amp %}
-              {{ t }}
-            {% else %}
-              {{ t }}
-            {% endif %}
-      - choose:
-          - conditions:
-              - condition: template
-                value_template: >
-                  {% set v = voltage_avg | float(230) %}
-                  {% if v <= 0 %}
-                    {% set v = 230 %}
-                  {% endif %}
-                  {{ target_amp_calc < min_amp and (non_ev_w + (min_amp * v)) > (limit_w - hysteresis_w) }}
-            sequence:
-              - service: switch.turn_off
-                target:
-                  entity_id: switch.wallbox_kristof_riebbels_pauzeren_hervatten
-              - service: input_number.set_value
-                target:
-                  entity_id: input_number.ev_last_set_current_a
-                data:
-                  value: 0
-              - stop: "Charging paused because demand exceeded limit even at minimum amps."
-      - if:
-          - condition: state
-            entity_id: switch.wallbox_kristof_riebbels_pauzeren_hervatten
-            state: "off"
-          - condition: template
-            value_template: >
-              {% set v = voltage_avg | float(230) %}
-              {% if v <= 0 %}
-                {% set v = 230 %}
-              {% endif %}
-              {{ (non_ev_w + (min_amp * v)) <= (limit_w - hysteresis_w) }}
-        then:
-          - service: switch.turn_on
-            target:
-              entity_id: switch.wallbox_kristof_riebbels_pauzeren_hervatten
-      - variables:
-          target_amp_final: >
-            {% if target_amp_clamped < min_amp %}
-              {{ min_amp }}
-            {% else %}
-              {{ [target_amp_clamped, max_amp] | min }}
-            {% endif %}
-      - condition: template
-        value_template: >
-          {{ (target_amp_final | round(0)) != (helper_amp | round(0)) }}
-      - service: number.set_value
-        target:
-          entity_id: number.wallbox_kristof_riebbels_maximale_laadstroom
-        data:
-          value: "{{ target_amp_final | round(0) }}"
-      - service: input_number.set_value
-        target:
-          entity_id: input_number.ev_last_set_current_a
-        data:
-          value: "{{ target_amp_final | round(0) }}"
-      - delay:
-          seconds: 5
+  # UITGESCHAKELD - Nieuwe versie in package 12 wordt gebruikt
+  # Onderstaande automation is gecommentarieerd om conflicten te voorkomen
+  # - alias: "EV Load Balancer - Adjust Charging Amps"
+  #   id: ev_load_balancer_adjust_charging_amps
+  #   mode: restart
+  #   trigger:
+  #     - platform: state
+  #       entity_id:
+  #         - sensor.ev_house_power
+  #         - sensor.ev_capacity_limit
+  #         - sensor.ev_non_ev_load
+  #       for: "00:00:20"
+  #     - platform: time_pattern
+  #       seconds: "/30"
+  #     - platform: homeassistant
+  #       event: start
+  #   condition:
+  #     - condition: state
+  #       entity_id: input_boolean.ev_force_max
+  #       state: "off"
+  #     - condition: state
+  #       entity_id: binary_sensor.ev_load_balancer_ready
+  #       state: "on"
+  #   action:
+  #     - variables:
+  #         voltage_avg: >
+  #           {% set readings = namespace(values=[]) %}
+  #           {% for candidate in [
+  #             'sensor.eth_dongle_pro_voltage_l1',
+  #             'sensor.eth_dongle_pro_voltage_l2',
+  #             'sensor.eth_dongle_pro_voltage_l3'
+  #           ] %}
+  #             {% set raw = states(candidate) %}
+  #             {% if raw not in ['unknown', 'unavailable', None] %}
+  #               {% set readings.values = readings.values + [raw | float(0)] %}
+  #             {% endif %}
+  #           {% endfor %}
+  #           {% if readings.values %}
+  #             {{ (readings.values | sum / readings.values | length) | round(1) }}
+  #           {% else %}
+  #             230
+  #           {% endif %}
+  #         limit_w: "{{ states('sensor.ev_capacity_limit') | float(0) }}"
+  #         margin_w: "{{ states('input_number.ev_margin_w') | float(0) }}"
+  #         hysteresis_w: "{{ states('input_number.ev_hysteresis_w') | float(0) }}"
+  #         step_amp: "{{ states('input_number.ev_step_amp') | float(1) }}"
+  #         min_amp: "{{ states('input_number.wallbox_min_amp') | float(6) }}"
+  #         max_amp: "{{ states('input_number.wallbox_max_amp') | float(16) }}"
+  #         helper_amp: "{{ states('input_number.ev_last_set_current_a') | float(0) }}"
+  #         non_ev_w: "{{ states('sensor.ev_non_ev_load') | float(0) }}"
+  #     - variables:
+  #         measured_current_amp: >
+  #           {% set current = namespace(value = helper_amp) %}
+  #           {% set voltage_local = voltage_avg | float(230) %}
+  #           {% if voltage_local <= 0 %}
+  #             {% set voltage_local = 230 %}
+  #           {% endif %}
+  #           {% set power = states('sensor.wallbox_kristof_riebbels_laadvermogen') %}
+  #           {% if power not in ['unknown', 'unavailable', None] %}
+  #             {% set current.value = ((power | float(0)) * 1000 / voltage_local) %}
+  #           {% else %}
+  #             {% for candidate in [
+  #               'sensor.wallbox_kristof_riebbels_max_laadstroom',
+  #               'sensor.wallbox_kristof_riebbels_max_beschikbaar_vermogen'
+  #             ] %}
+  #               {% set raw = states(candidate) %}
+  #               {% if raw not in ['unknown', 'unavailable', None] %}
+  #                 {% set current.value = raw | float(0) %}
+  #                 {% break %}
+  #               {% endif %}
+  #             {% endfor %}
+  #           {% endif %}
+  #           {{ current.value }}
+  #         current_amp: "{{ measured_current_amp | float(0) }}"
+  #         available_w: >
+  #           {% set raw = limit_w - margin_w - non_ev_w %}
+  #           {{ [raw, 0] | max }}
+  #         target_amp_calc: >
+  #           {% set v = voltage_avg | float(230) %}
+  #           {% if v <= 0 %}
+  #             {% set v = 230 %}
+  #           {% endif %}
+  #           {{ (available_w / v) | float(0) }}
+  #         ramp_target_amp: >
+  #           {% set current = current_amp %}
+  #           {% set target = target_amp_calc %}
+  #           {% set step = step_amp %}
+  #           {% if target > current + step %}
+  #             {{ current + step }}
+  #           {% elif target < current - step %}
+  #             {{ current - step }}
+  #           {% else %}
+  #             {{ target }}
+  #           {% endif %}
+  #         target_amp_clamped: >
+  #           {% set t = ramp_target_amp %}
+  #           {% if t > max_amp %}
+  #             {{ max_amp }}
+  #           {% elif t < min_amp %}
+  #             {{ t }}
+  #           {% else %}
+  #             {{ t }}
+  #           {% endif %}
+  #     - choose:
+  #         - conditions:
+  #             - condition: template
+  #               value_template: >
+  #                 {% set v = voltage_avg | float(230) %}
+  #                 {% if v <= 0 %}
+  #                   {% set v = 230 %}
+  #                 {% endif %}
+  #                 {{ target_amp_calc < min_amp and (non_ev_w + (min_amp * v)) > (limit_w - hysteresis_w) }}
+  #           sequence:
+  #             - service: switch.turn_off
+  #               target:
+  #                 entity_id: switch.wallbox_kristof_riebbels_pauzeren_hervatten
+  #             - service: input_number.set_value
+  #               target:
+  #                 entity_id: input_number.ev_last_set_current_a
+  #               data:
+  #                 value: 0
+  #             - stop: "Charging paused because demand exceeded limit even at minimum amps."
+  #     - if:
+  #         - condition: state
+  #           entity_id: switch.wallbox_kristof_riebbels_pauzeren_hervatten
+  #           state: "off"
+  #         - condition: template
+  #           value_template: >
+  #             {% set v = voltage_avg | float(230) %}
+  #             {% if v <= 0 %}
+  #               {% set v = 230 %}
+  #             {% endif %}
+  #             {{ (non_ev_w + (min_amp * v)) <= (limit_w - hysteresis_w) }}
+  #       then:
+  #         - service: switch.turn_on
+  #           target:
+  #             entity_id: switch.wallbox_kristof_riebbels_pauzeren_hervatten
+  #     - variables:
+  #         target_amp_final: >
+  #           {% if target_amp_clamped < min_amp %}
+  #             {{ min_amp }}
+  #           {% else %}
+  #             {{ [target_amp_clamped, max_amp] | min }}
+  #           {% endif %}
+  #     - condition: template
+  #       value_template: >
+  #         {{ (target_amp_final | round(0)) != (helper_amp | round(0)) }}
+  #     - service: number.set_value
+  #       target:
+  #         entity_id: number.wallbox_kristof_riebbels_maximale_laadstroom
+  #       data:
+  #         value: "{{ target_amp_final | round(0) }}"
+  #     - service: input_number.set_value
+  #       target:
+  #         entity_id: input_number.ev_last_set_current_a
+  #       data:
+  #         value: "{{ target_amp_final | round(0) }}"
+  #     - delay:
+  #         seconds: 5
 
   - alias: "EV Load Balancer - Force Max Override"
     id: ev_load_balancer_force_max_override
