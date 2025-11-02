@@ -1,181 +1,166 @@
 # Totaal Energie Dashboard
-# Overzicht van elektriciteit, gas en totale kosten
+# Compleet overzicht van elektriciteit, gas en kosten
 
 views:
   - title: Energie Totaal
     path: energie-totaal
-    icon: mdi:home-lightning-bolt
+    icon: mdi:flash
     cards:
       # Header
       - type: custom:mushroom-title-card
         title: Energie Overzicht
         subtitle: Elektriciteit, Gas & Kosten
         
-      # Dagelijkse kosten overzicht
+      # Quick stats
       - type: horizontal-stack
         cards:
-          - type: custom:mushroom-entity-card
-            entity: sensor.daily_energy_cost
-            name: Elektriciteit
-            icon: mdi:lightning-bolt
-            icon_color: yellow
+          - type: tile
+            entity: sensor.house_net_power
+            name: Huidig Verbruik
+            color: state
+          - type: tile
+            entity: sensor.grid_flow_direction
+            name: Grid Status
+            color: state
             
-          - type: custom:mushroom-entity-card
-            entity: sensor.gas_kosten_vandaag
-            name: Gas
-            icon: mdi:fire
-            icon_color: orange
-            
-          - type: custom:mushroom-entity-card
-            entity: sensor.totale_energie_kosten_vandaag
-            name: Totaal Vandaag
-            icon: mdi:currency-eur
-            icon_color: green
-            
-      # Maandelijkse projectie
-      - type: custom:mushroom-template-card
-        primary: Geschatte Maandkosten
-        secondary: >
-          Energie: €{{ ((states('sensor.totale_energie_kosten_vandaag') | float / now().day * 30) if now().day > 0 else 0) | round(2) }}
-          + Capaciteit: €{{ states('sensor.geschatte_capaciteitstarief_kost') | round(2) }}
-          = €{{ states('sensor.totale_energie_kosten_schatting_maand') | round(2) }}
-        icon: mdi:calendar-month
-        icon_color: >
-          {% set cost = states('sensor.totale_energie_kosten_schatting_maand') | float(0) %}
-          {% if cost < 150 %} green
-          {% elif cost < 200 %} yellow
-          {% elif cost < 250 %} orange
-          {% else %} red
-          {% endif %}
-          
-      # Verbruik meters
-      - type: horizontal-stack
-        cards:
-          - type: gauge
-            entity: sensor.daily_energy_consumption
-            name: Elektriciteit Vandaag
-            unit: kWh
-            min: 0
-            max: 50
-            severity:
-              green: 0
-              yellow: 20
-              red: 35
-              
-          - type: gauge
-            entity: sensor.gas_verbruik_vandaag
-            name: Gas Vandaag
-            unit: kWh
-            min: 0
-            max: 100
-            severity:
-              green: 0
-              yellow: 50
-              red: 80
-              
-      # Tarieven overzicht
+      # Dagverbruik
       - type: entities
-        title: Energie Tarieven
+        title: Verbruik Vandaag
         entities:
-          - type: section
-            label: Elektriciteit
-          - entity: input_number.elektriciteit_energieprijs
-            name: Energieprijs
-          - entity: input_number.capaciteitstarief_prijs_per_kw
-            name: Capaciteitstarief
-          - type: section
-            label: Gas (incl. BTW)
-          - type: custom:template-entity-row
-            entity: sensor.gas_totaalprijs_per_kwh
-            name: Totaalprijs Gas
-            secondary: >
-              Energie: €{{ state_attr('sensor.gas_totaalprijs_per_kwh', 'energieprijs') }}
-              + Net: €{{ state_attr('sensor.gas_totaalprijs_per_kwh', 'nettarieven') }}
-              + Taksen: €{{ state_attr('sensor.gas_totaalprijs_per_kwh', 'taksen') }}
-            state: "€{{ states('sensor.gas_totaalprijs_per_kwh') }}"
+          - entity: sensor.electricity_consumption_daily
+            name: Elektriciteit
+            icon: mdi:flash
+          - entity: sensor.gas_consumption_daily
+            name: Gas
+            icon: mdi:gas-burner
+          - type: divider
+          - entity: sensor.consumption_trend
+            name: Trend vs Gisteren
             
-      # Verhouding elektriciteit vs gas
-      - type: custom:mushroom-template-card
-        primary: Energie Mix Vandaag
-        secondary: "{{ states('sensor.energie_kosten_verhouding') }}"
-        icon: mdi:chart-pie
-        icon_color: blue
-        
-      # Historie grafiek
+      # Kosten overzicht
+      - type: entities
+        title: Kosten
+        entities:
+          - entity: sensor.electricity_cost_daily
+            name: Elektriciteit Vandaag
+          - entity: sensor.gas_cost_daily
+            name: Gas Vandaag
+          - entity: sensor.total_energy_cost_daily
+            name: Totaal Vandaag
+          - type: divider
+          - entity: sensor.estimated_monthly_cost_total
+            name: Geschatte Maandkosten
+          - entity: sensor.cost_per_hour
+            name: Kosten Per Uur
+            
+      # Tarieven
+      - type: entities
+        title: Actuele Tarieven
+        entities:
+          - entity: input_number.electricity_energy_price
+            name: Elektriciteit Tarief
+          - entity: sensor.gas_total_price
+            name: Gas Totaalprijs
+          - entity: input_number.capacity_tariff_price
+            name: Capaciteitstarief
+            
+      # Apparaten overzicht
+      - type: entities
+        title: Apparaten
+        entities:
+          - entity: sensor.vaatwasser_status
+            name: Vaatwasser
+          - entity: sensor.washing_machine_status
+            name: Wasmachine
+          - entity: sensor.dryer_status
+            name: Droogkast
+          - type: divider
+          - entity: sensor.total_appliances_power
+            name: Totaal Apparaten
+          - entity: binary_sensor.heavy_appliances_active
+            name: Zware Apparaten Actief
+            
+      # Verbruiksgrafiek
       - type: custom:apexcharts-card
         header:
           show: true
-          title: Dagelijks Verbruik (7 dagen)
-        graph_span: 7d
+          title: Verbruik Laatste 24u
+        graph_span: 24h
         series:
-          - entity: sensor.daily_energy_consumption
+          - entity: sensor.house_net_power
             name: Elektriciteit
-            type: column
-            color: yellow
+            type: area
+            color: blue
             group_by:
-              func: max
-              duration: 1d
-          - entity: sensor.gas_verbruik_vandaag
+              func: avg
+              duration: 15min
+          - entity: sensor.gas_consumption_kwh
             name: Gas
-            type: column
+            type: line
             color: orange
+            y_axis_id: secondary
             group_by:
-              func: max
-              duration: 1d
+              func: last
+              duration: 1h
         yaxis:
-          - min: 0
+          - id: primary
             decimals: 0
             apex_config:
               title:
-                text: kWh
+                text: Elektriciteit (W)
+          - id: secondary
+            opposite: true
+            decimals: 1
+            apex_config:
+              title:
+                text: Gas (kWh)
                 
-      # Slimme apparaten overzicht
+      # Daggemiddelde
+      - type: custom:mushroom-template-card
+        primary: Daggemiddelde
+        secondary: >
+          {{ states('sensor.daggemiddelde_verbruik') | round(1) }} kWh
+          {% if states('sensor.consumption_trend') == 'Hoger dan gisteren' %}
+            📈 Hoger dan normaal
+          {% elif states('sensor.consumption_trend') == 'Lager dan gisteren' %}
+            📉 Lager dan normaal
+          {% else %}
+            ➡️ Normaal verbruik
+          {% endif %}
+        icon: mdi:chart-line
+        icon_color: >
+          {% if states('sensor.consumption_trend') == 'Hoger dan gisteren' %}
+            orange
+          {% elif states('sensor.consumption_trend') == 'Lager dan gisteren' %}
+            green
+          {% else %}
+            blue
+          {% endif %}
+          
+      # Contract info
       - type: entities
-        title: Grote Verbruikers
+        title: Contract Informatie
         entities:
+          - entity: input_text.fluvius_tarief_type
+            name: Tarief Type
+          - entity: sensor.fluvius_tariff_info
+            name: Provider Info
           - type: custom:template-entity-row
-            entity: switch.wallbox_kristof_riebbels_pauzeren_hervatten
-            name: EV Laden
-            secondary: "{{ states('sensor.wallbox_kristof_riebbels_laadvermogen') | round(0) }} W"
-            icon: mdi:ev-station
-            state: >
-              {% if is_state('switch.wallbox_kristof_riebbels_pauzeren_hervatten', 'on') %}
-                Gepauzeerd
-              {% elif states('sensor.wallbox_kristof_riebbels_laadvermogen') | float > 100 %}
-                Actief
-              {% else %}
-                Standby
-              {% endif %}
-          - type: custom:template-entity-row
-            entity: switch.vaatwas
-            name: Vaatwasser
-            secondary: "{{ states('sensor.vaatwas_power') | round(0) }} W"
-            icon: mdi:dishwasher
-          - type: custom:template-entity-row
-            entity: switch.metered_wall_plug_switch
-            name: Wasmachine
-            secondary: "{{ states('sensor.metered_wall_plug_switch_power') | round(0) }} W"
-            icon: mdi:washing-machine
-          - type: custom:template-entity-row
-            entity: switch.droogkast
-            name: Droogkast
-            secondary: "{{ states('sensor.droogkast_power') | round(0) }} W"
-            icon: mdi:tumble-dryer
-          - type: custom:template-entity-row
-            entity: switch.waterker
-            name: Boiler
-            secondary: "{{ states('sensor.waterker_power') | round(0) }} W"
-            icon: mdi:water-boiler
+            name: Contract Verloopt
+            state: 2 november 2025
+            icon: mdi:calendar-clock
             
-      # Optimalisatie status
+      # Tips
       - type: markdown
         content: |
-          ## 📊 Status & Optimalisatie
+          ## 💡 Energie Tips
           
-          **Capaciteit:**
-          - Gebruikt: **{{ states('sensor.ev_house_power') | round(0) }} W** van **{{ (states('sensor.home_import_power_peak_31d') | float) | round(0) }} W** piek
-          - Beschikbaar: **{{ states('sensor.available_capacity') | round(0) }} W**
+          **Bespaar op je energierekening:**
+          - 🌙 Gebruik zware apparaten 's nachts
+          - 🔌 Vermijd gelijktijdig gebruik van apparaten
+          - 📊 Blijf onder je capaciteitspiek
+          - 🚗 Laad je EV tijdens daluren
           
-          **Slimme Spreiding:** {% if is_state('input_boolean.smart_spreading_active', 'on') %}✅ Actief{% else %}❌ Uit{% endif %}
-          
-          **Optimalisatie:** {{ states('sensor.energie_optimalisatie_potentieel') }}
+          **Huidige status:**
+          - Capaciteitspiek: {{ (states('sensor.home_import_power_peak_31d') | float(0) / 1000) | round(2) }} kW
+          - Beschikbaar: {{ states('sensor.available_capacity') }} W

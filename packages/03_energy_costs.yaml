@@ -1,0 +1,173 @@
+# Energy Costs - Alle energie tarieven en kosten berekeningen
+# Voor elektriciteit, gas en totale kosten
+
+input_number:
+  # Elektriciteit tarieven
+  electricity_energy_price:
+    name: Elektriciteit energieprijs
+    min: 0
+    max: 1
+    step: 0.001
+    initial: 0.25  # Vul je werkelijke prijs in
+    unit_of_measurement: "€/kWh"
+    icon: mdi:currency-eur
+    mode: box
+    
+  capacity_tariff_price:
+    name: Capaciteitstarief prijs
+    min: 0
+    max: 10
+    step: 0.1
+    initial: 3.0  # €/kW/maand
+    unit_of_measurement: "€/kW/maand"
+    icon: mdi:gauge
+    mode: box
+    
+  # Gas tarieven (uit Energie.be tariefkaart)
+  gas_energy_price:
+    name: Gas energieprijs
+    min: 0
+    max: 0.1
+    step: 0.0001
+    initial: 0.0371  # 3,71 c€/kWh
+    unit_of_measurement: "€/kWh"
+    icon: mdi:currency-eur
+    mode: box
+    
+  gas_fixed_fee_yearly:
+    name: Gas vaste vergoeding
+    min: 0
+    max: 100
+    step: 0.01
+    initial: 65.00  # €65/jaar
+    unit_of_measurement: "€/jaar"
+    icon: mdi:currency-eur
+    mode: box
+    
+  # Gas netwerk kosten (all-in)
+  gas_network_costs:
+    name: Gas netwerk + taksen
+    min: 0
+    max: 0.1
+    step: 0.0001
+    initial: 0.0359  # Som van distributie + transport + accijns + bijdrage
+    unit_of_measurement: "€/kWh"
+    icon: mdi:pipe
+    mode: box
+
+template:
+  - sensor:
+      # Gas conversie m³ naar kWh
+      - name: "Gas Verbruik kWh"
+        unique_id: gas_consumption_kwh
+        unit_of_measurement: kWh
+        device_class: energy
+        state_class: total_increasing
+        state: >
+          {% set m3 = states('sensor.eth_dongle_pro_gas_delivered') | float(0) %}
+          {% set factor = 11.25 %}  # Gemiddelde conversie factor België
+          {{ (m3 * factor) | round(2) }}
+        availability: >
+          {{ states('sensor.eth_dongle_pro_gas_delivered') not in ['unknown', 'unavailable', None] }}
+          
+      # Totale gas prijs per kWh
+      - name: "Gas Totaalprijs"
+        unique_id: gas_total_price
+        unit_of_measurement: "€/kWh"
+        device_class: monetary
+        state: >
+          {% set energy = states('input_number.gas_energy_price') | float(0) %}
+          {% set network = states('input_number.gas_network_costs') | float(0) %}
+          {{ (energy + network) | round(4) }}
+        attributes:
+          energy_price: "{{ states('input_number.gas_energy_price') }}"
+          network_costs: "{{ states('input_number.gas_network_costs') }}"
+          btw_included: true
+          
+      # Dagelijks verbruik elektriciteit
+      - name: "Elektriciteit Verbruik Vandaag"
+        unique_id: electricity_consumption_daily
+        unit_of_measurement: kWh
+        device_class: energy
+        state: >
+          {% set t1 = states('sensor.eth_dongle_pro_energy_delivered_t1') | float(0) %}
+          {% set t2 = states('sensor.eth_dongle_pro_energy_delivered_t2') | float(0) %}
+          {% set t1_start = state_attr('sensor.eth_dongle_pro_energy_delivered_t1', 'last_reset_value') | float(t1) %}
+          {% set t2_start = state_attr('sensor.eth_dongle_pro_energy_delivered_t2', 'last_reset_value') | float(t2) %}
+          {{ ((t1 - t1_start) + (t2 - t2_start)) | round(2) }}
+          
+      # Dagelijks gas verbruik  
+      - name: "Gas Verbruik Vandaag"
+        unique_id: gas_consumption_daily
+        unit_of_measurement: kWh
+        device_class: energy
+        state: >
+          {% set current = states('sensor.gas_consumption_kwh') | float(0) %}
+          {% set start = state_attr('sensor.gas_consumption_kwh', 'last_reset_value') | float(current) %}
+          {{ (current - start) | round(2) }}
+          
+      # Dagelijkse kosten
+      - name: "Elektriciteit Kosten Vandaag"
+        unique_id: electricity_cost_daily
+        unit_of_measurement: "€"
+        device_class: monetary
+        state: >
+          {% set kwh = states('sensor.electricity_consumption_daily') | float(0) %}
+          {% set price = states('input_number.electricity_energy_price') | float(0.25) %}
+          {{ (kwh * price) | round(2) }}
+          
+      - name: "Gas Kosten Vandaag"
+        unique_id: gas_cost_daily
+        unit_of_measurement: "€"
+        device_class: monetary
+        state: >
+          {% set kwh = states('sensor.gas_consumption_daily') | float(0) %}
+          {% set price = states('sensor.gas_total_price') | float(0) %}
+          {% set daily_fixed = states('input_number.gas_fixed_fee_yearly') | float(65) / 365 %}
+          {{ ((kwh * price) + daily_fixed) | round(2) }}
+          
+      - name: "Totale Energie Kosten Vandaag"
+        unique_id: total_energy_cost_daily
+        unit_of_measurement: "€"
+        device_class: monetary
+        state: >
+          {% set elec = states('sensor.electricity_cost_daily') | float(0) %}
+          {% set gas = states('sensor.gas_cost_daily') | float(0) %}
+          {{ (elec + gas) | round(2) }}
+        attributes:
+          electricity: "{{ states('sensor.electricity_cost_daily') }}"
+          gas: "{{ states('sensor.gas_cost_daily') }}"
+          
+      # Maandelijkse schatting
+      - name: "Geschatte Maandkosten Totaal"
+        unique_id: estimated_monthly_cost_total
+        unit_of_measurement: "€"
+        device_class: monetary
+        state: >
+          {% set daily = states('sensor.total_energy_cost_daily') | float(0) %}
+          {% set days = now().day %}
+          {% set month_estimate = (daily / days * 30) if days > 0 else 0 %}
+          {% set capacity = states('sensor.capacity_tariff_cost') | float(0) %}
+          {{ (month_estimate + capacity) | round(2) }}
+        attributes:
+          energy_costs: "{{ ((states('sensor.total_energy_cost_daily') | float(0) / now().day * 30) if now().day > 0 else 0) | round(2) }}"
+          capacity_tariff: "{{ states('sensor.capacity_tariff_cost') | float(0) }}"
+
+# Automatische reset voor dagelijkse tracking
+automation:
+  - alias: "Reset Dagelijkse Verbruik Counters"
+    id: reset_daily_consumption
+    trigger:
+      - platform: time
+        at: "00:00:01"
+    action:
+      - service: input_number.set_value
+        target:
+          entity_id: 
+            - sensor.electricity_consumption_daily
+            - sensor.gas_consumption_daily
+        data_template:
+          value: >
+            {% set entity = trigger.entity_id %}
+            {% set current = states(entity) | float(0) %}
+            {{ {'last_reset_value': current} }}

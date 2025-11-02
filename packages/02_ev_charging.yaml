@@ -1,0 +1,296 @@
+# EV Charging - Slimme laadregeling met minimale aanpassingen
+# Voorkomt onnodige Kia app meldingen door alleen significante wijzigingen
+
+input_number:
+  # Wallbox instellingen
+  wallbox_min_amp:
+    name: Wallbox minimum ampere
+    min: 6
+    max: 10
+    step: 1
+    initial: 6
+    unit_of_measurement: A
+    icon: mdi:current-ac
+    
+  wallbox_max_amp:
+    name: Wallbox maximum ampere
+    min: 10
+    max: 32
+    step: 1
+    initial: 16
+    unit_of_measurement: A
+    icon: mdi:current-ac
+    
+  ev_step_amp:
+    name: Aanpassing stapgrootte
+    min: 0.5
+    max: 3
+    step: 0.5
+    initial: 1
+    unit_of_measurement: A
+    icon: mdi:stairs
+    
+  ev_last_set_current_a:
+    name: Laatst ingestelde stroom
+    min: 0
+    max: 32
+    step: 1
+    initial: 0
+    unit_of_measurement: A
+    icon: mdi:history
+    
+  # Sessie tracking
+  ev_session_kwh_total:
+    name: Laadsessie totaal
+    min: 0
+    max: 100
+    step: 0.01
+    initial: 0
+    unit_of_measurement: kWh
+    icon: mdi:battery-charging
+
+input_boolean:
+  ev_force_max:
+    name: Force maximum laden
+    initial: false
+    icon: mdi:flash-alert
+
+input_datetime:
+  ev_last_adjustment_time:
+    name: Laatste aanpassing tijd
+    has_date: true
+    has_time: true
+    
+  ev_session_start:
+    name: Laadsessie start
+    has_date: true
+    has_time: true
+
+template:
+  - sensor:
+      # EV verbruik schatting
+      - name: "EV Geschat Vermogen"
+        unique_id: ev_estimated_power
+        unit_of_measurement: W
+        device_class: power
+        state_class: measurement
+        state: >
+          {% set power = states('sensor.wallbox_kristof_riebbels_laadvermogen') %}
+          {% if power not in ['unknown', 'unavailable', None] %}
+            {{ power | float(0) | round(0) }}
+          {% else %}
+            {% set current = states('sensor.wallbox_kristof_riebbels_max_laadstroom') %}
+            {% if current not in ['unknown', 'unavailable', None] %}
+              {{ (current | float(0) * 230) | round(0) }}
+            {% else %}
+              {{ (states('input_number.ev_last_set_current_a') | float(0) * 230) | round(0) }}
+            {% endif %}
+          {% endif %}
+          
+      # Non-EV verbruik
+      - name: "Non EV Verbruik"
+        unique_id: non_ev_load
+        unit_of_measurement: W
+        device_class: power
+        state_class: measurement
+        state: >
+          {% set total = states('sensor.house_net_power') | float(0) %}
+          {% set ev = states('sensor.ev_estimated_power') | float(0) %}
+          {{ [total - ev, 0] | max | round(0) }}
+        availability: >
+          {{ states('sensor.house_net_power') not in ['unknown', 'unavailable', None] }}
+          
+      # Beschikbaar voor EV
+      - name: "EV Beschikbare Capaciteit"
+        unique_id: ev_available_capacity
+        unit_of_measurement: W
+        device_class: power
+        state: >
+          {% set limit = states('sensor.fluvius_capacity_limit') | float(0) %}
+          {% set non_ev = states('sensor.non_ev_load') | float(0) %}
+          {% set margin = states('input_number.ev_margin_w') | float(500) %}
+          {{ [limit - non_ev - margin, 0] | max | round(0) }}
+          
+      # Tijd sinds laatste aanpassing
+      - name: "EV Tijd Sinds Aanpassing"
+        unique_id: ev_time_since_adjustment
+        unit_of_measurement: s
+        state: >
+          {% set last = states('input_datetime.ev_last_adjustment_time') %}
+          {% if last not in ['unknown', 'unavailable', None] %}
+            {{ (as_timestamp(now()) - as_timestamp(last)) | round(0) }}
+          {% else %}
+            999
+          {% endif %}
+          
+      # Laadsessie monitoring
+      - name: "EV Laadsessie Duur"
+        unique_id: ev_session_duration
+        unit_of_measurement: min
+        state: >
+          {% if states('sensor.ev_estimated_power') | float(0) > 100 %}
+            {% set start = states('input_datetime.ev_session_start') %}
+            {% if start not in ['unknown', 'unavailable', None] %}
+              {{ ((as_timestamp(now()) - as_timestamp(start)) / 60) | round(0) }}
+            {% else %}
+              0
+            {% endif %}
+          {% else %}
+            0
+          {% endif %}
+          
+      - name: "EV Laadsessie Kosten"
+        unique_id: ev_session_cost
+        unit_of_measurement: "€"
+        device_class: monetary
+        state: >
+          {% set kwh = states('input_number.ev_session_kwh_total') | float(0) %}
+          {% set price = 0.25 %}  # Default prijs, wordt overschreven door energy_costs package
+          {{ (kwh * price) | round(2) }}
+          
+  - binary_sensor:
+      # Load balancer ready check
+      - name: "EV Load Balancer Ready"
+        unique_id: ev_load_balancer_ready
+        state: >
+          {% set sensors = [
+            'sensor.house_net_power',
+            'sensor.fluvius_capacity_limit',
+            'sensor.non_ev_load'
+          ] %}
+          {% set all_ok = namespace(value=true) %}
+          {% for sensor in sensors %}
+            {% if states(sensor) in ['unknown', 'unavailable', None] %}
+              {% set all_ok.value = false %}
+            {% endif %}
+          {% endfor %}
+          {{ all_ok.value }}
+
+automation:
+  # Slimme load balancer met minimale aanpassingen
+  - alias: "EV Load Balancer"
+    id: ev_smart_load_balancer
+    mode: single
+    max_exceeded: silent
+    trigger:
+      - platform: time_pattern
+        seconds: "/30"
+      - platform: numeric_state
+        entity_id: sensor.ev_available_capacity
+        below: 0
+        for: "00:00:10"  # Snelle reactie bij overbelasting
+    condition:
+      - condition: state
+        entity_id: input_boolean.ev_force_max
+        state: "off"
+      - condition: state
+        entity_id: binary_sensor.ev_load_balancer_ready
+        state: "on"
+    action:
+      - variables:
+          available_power: "{{ states('sensor.ev_available_capacity') | float(0) }}"
+          current_amp: >
+            {% set sensor = state_attr('sensor.wallbox_kristof_riebbels_max_laadstroom', 'value') %}
+            {{ sensor | float(states('input_number.ev_last_set_current_a') | float(0)) }}
+          target_amp: "{{ (available_power / 230) | round(0) }}"
+          min_amp: "{{ states('input_number.wallbox_min_amp') | float(6) }}"
+          max_amp: "{{ states('input_number.wallbox_max_amp') | float(16) }}"
+          step_amp: "{{ states('input_number.ev_step_amp') | float(1) }}"
+          time_since_last: "{{ states('sensor.ev_tijd_sinds_aanpassing') | float(999) }}"
+          
+      # Bepaal nieuwe amperage met hysterese
+      - variables:
+          new_amp: >
+            {% set diff = target_amp - current_amp %}
+            {% if diff > step_amp %}
+              {{ [current_amp + step_amp, max_amp] | min }}
+            {% elif diff < -step_amp %}
+              {{ [current_amp - step_amp, min_amp] | max }}
+            {% else %}
+              {{ current_amp }}
+            {% endif %}
+            
+      # Check of aanpassing nodig is
+      - choose:
+          # Pauzeer bij te weinig capaciteit
+          - conditions:
+              - condition: template
+                value_template: "{{ target_amp < min_amp }}"
+            sequence:
+              - service: switch.turn_on
+                target:
+                  entity_id: switch.wallbox_kristof_riebbels_pauzeren_hervatten
+              - service: input_number.set_value
+                target:
+                  entity_id: input_number.ev_last_set_current_a
+                data:
+                  value: 0
+                  
+          # Pas aan als significant verschil EN genoeg tijd verstreken
+          - conditions:
+              - condition: template
+                value_template: "{{ (new_amp - current_amp)|abs >= 2 or time_since_last > 120 }}"
+              - condition: template
+                value_template: "{{ new_amp != current_amp }}"
+            sequence:
+              # Hervat indien gepauzeerd
+              - condition: state
+                entity_id: switch.wallbox_kristof_riebbels_pauzeren_hervatten
+                state: "on"
+              - service: switch.turn_off
+                target:
+                  entity_id: switch.wallbox_kristof_riebbels_pauzeren_hervatten
+              - delay: "00:00:02"
+              
+              # Stel nieuwe stroom in
+              - service: number.set_value
+                target:
+                  entity_id: number.wallbox_kristof_riebbels_maximale_laadstroom
+                data:
+                  value: "{{ new_amp }}"
+              - service: input_number.set_value
+                target:
+                  entity_id: input_number.ev_last_set_current_a
+                data:
+                  value: "{{ new_amp }}"
+              - service: input_datetime.set_datetime
+                target:
+                  entity_id: input_datetime.ev_last_adjustment_time
+                data:
+                  datetime: "{{ now() }}"
+                  
+  # Force max override
+  - alias: "EV Force Maximum"
+    id: ev_force_maximum_override
+    trigger:
+      - platform: state
+        entity_id: input_boolean.ev_force_max
+        to: "on"
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id: switch.wallbox_kristof_riebbels_pauzeren_hervatten
+      - service: number.set_value
+        target:
+          entity_id: number.wallbox_kristof_riebbels_maximale_laadstroom
+        data:
+          value: "{{ states('input_number.wallbox_max_amp') | float(16) }}"
+          
+  # Laadsessie tracking
+  - alias: "EV Sessie Start"
+    id: ev_session_start
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.ev_estimated_power
+        above: 100
+    action:
+      - service: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.ev_session_start
+        data:
+          datetime: "{{ now() }}"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.ev_session_kwh_total
+        data:
+          value: 0

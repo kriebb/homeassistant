@@ -1,0 +1,180 @@
+# Energy Core - Basis energie monitoring voor België
+# Combineert capaciteitstarief, maandpiek tracking en beschikbare capaciteit
+
+# Maandpiek tracking (31 dagen rollend)
+sensor:
+  - platform: statistics
+    name: home_import_power_peak_31d
+    entity_id: sensor.eth_dongle_pro_power_delivered
+    state_characteristic: value_max
+    max_age:
+      days: 31
+
+# Basis inputs voor configuratie
+input_number:
+  # Contract en capaciteit limits
+  ev_main_limit_w:
+    name: Netaansluiting limiet
+    min: 1000
+    max: 15000
+    step: 100
+    initial: 9200  # 40A @ 230V
+    unit_of_measurement: W
+    icon: mdi:transmission-tower
+    
+  capaciteitstarief_contract_kw:
+    name: Contract capaciteit
+    min: 2.5
+    max: 15
+    step: 0.5
+    initial: 5
+    unit_of_measurement: kW
+    icon: mdi:file-document
+    
+  # EV Load balancer settings
+  ev_margin_w:
+    name: Veiligheidsmarge
+    min: 0
+    max: 1000
+    step: 50
+    initial: 500
+    unit_of_measurement: W
+    icon: mdi:shield-check
+    
+  ev_hysteresis_w:
+    name: Hysterese
+    min: 0
+    max: 500
+    step: 50
+    initial: 200
+    unit_of_measurement: W
+    icon: mdi:sine-wave
+
+input_text:
+  fluvius_tarief_type:
+    name: Fluvius Tarief Type
+    initial: "Variabel"
+    icon: mdi:file-document
+    max: 20
+
+template:
+  - sensor:
+      # Hoofdcapaciteit limiet (hoogste van contract of maandpiek)
+      - name: "Fluvius Capacity Limit"
+        unique_id: fluvius_capacity_limit
+        unit_of_measurement: W
+        device_class: power
+        state_class: measurement
+        state: >
+          {% set contract_limit = states('input_number.ev_main_limit_w') | float(9200) %}
+          {% set monthly_peak = states('sensor.home_import_power_peak_31d') | float(0) %}
+          {% set capacity_contract = states('input_number.capaciteitstarief_contract_kw') | float(5) * 1000 %}
+          {{ [contract_limit, monthly_peak, capacity_contract] | max | round(0) }}
+        availability: >
+          {{ states('input_number.ev_main_limit_w') not in ['unknown', 'unavailable', None] }}
+        attributes:
+          contract_limit_w: "{{ states('input_number.ev_main_limit_w') | float(9200) }}"
+          monthly_peak_w: "{{ states('sensor.home_import_power_peak_31d') | float(0) }}"
+          capacity_contract_w: "{{ states('input_number.capaciteitstarief_contract_kw') | float(5) * 1000 }}"
+          
+      # Netto huisverbruik (import - export)
+      - name: "Huis Netto Verbruik"
+        unique_id: house_net_power
+        unit_of_measurement: W
+        device_class: power
+        state_class: measurement
+        state: >
+          {% set delivered = states('sensor.eth_dongle_pro_power_delivered') | float(0) %}
+          {% set returned = states('sensor.eth_dongle_pro_power_returned') | float(0) %}
+          {{ [delivered - returned, 0] | max | round(0) }}
+        availability: >
+          {{ states('sensor.eth_dongle_pro_power_delivered') not in ['unknown', 'unavailable', None] and
+             states('sensor.eth_dongle_pro_power_returned') not in ['unknown', 'unavailable', None] }}
+             
+      # Beschikbare capaciteit
+      - name: "Available Capacity"
+        unique_id: available_capacity
+        unit_of_measurement: W
+        device_class: power
+        state_class: measurement
+        state: >
+          {% set limit = states('sensor.fluvius_capacity_limit') | float(0) %}
+          {% set load = states('sensor.house_net_power') | float(0) %}
+          {% set margin = states('input_number.ev_margin_w') | float(500) %}
+          {{ [limit - load - margin, 0] | max | round(0) }}
+        availability: >
+          {{ states('sensor.fluvius_capacity_limit') not in ['unknown', 'unavailable', None] and
+             states('sensor.house_net_power') not in ['unknown', 'unavailable', None] }}
+        attributes:
+          limit: "{{ states('sensor.fluvius_capacity_limit') }}"
+          current_load: "{{ states('sensor.house_net_power') }}"
+          margin: "{{ states('input_number.ev_margin_w') }}"
+          
+      # Capaciteitstarief monitoring
+      - name: "Capaciteit Status"
+        unique_id: capacity_status
+        state: >
+          {% set current_power = states('sensor.house_net_power') | float(0) %}
+          {% set limit = states('sensor.fluvius_capacity_limit') | float(0) %}
+          {% set percentage = (current_power / limit * 100) | round(0) if limit > 0 else 0 %}
+          
+          {% if percentage < 50 %}
+            OK ({{ percentage }}%)
+          {% elif percentage < 80 %}
+            Normaal ({{ percentage }}%)
+          {% elif percentage < 95 %}
+            Hoog ({{ percentage }}%)
+          {% else %}
+            Kritiek ({{ percentage }}%)
+          {% endif %}
+        attributes:
+          current_power_w: "{{ states('sensor.house_net_power') | float(0) }}"
+          limit_w: "{{ states('sensor.fluvius_capacity_limit') | float(0) }}"
+          percentage_used: "{{ (states('sensor.house_net_power') | float(0) / states('sensor.fluvius_capacity_limit') | float(1) * 100) | round(1) }}"
+          
+      # Geschatte capaciteitstarief kost
+      - name: "Capaciteitstarief Kost"
+        unique_id: capacity_tariff_cost
+        unit_of_measurement: "€"
+        device_class: monetary
+        state: >
+          {% set peak_kw = states('sensor.home_import_power_peak_31d') | float(0) / 1000 %}
+          {% set minimum_kw = 2.5 %}
+          {% set billable_kw = [peak_kw, minimum_kw] | max %}
+          {% set price_per_kw = 3.0 %}
+          {{ (billable_kw * price_per_kw) | round(2) }}
+        attributes:
+          peak_kw: "{{ (states('sensor.home_import_power_peak_31d') | float(0) / 1000) | round(2) }}"
+          price_per_kw_month: "3.0"
+          
+      # Fluvius tarief info
+      - name: "Fluvius Tarief"
+        unique_id: fluvius_tariff_info
+        state: "{{ states('input_text.fluvius_tarief_type') }}"
+        attributes:
+          provider: "energie.be"
+          has_day_night: false
+          has_capacity_tariff: true
+          
+  - binary_sensor:
+      # Nieuwe maandpiek waarschuwing
+      - name: "Nieuwe Maandpiek Waarschuwing"
+        unique_id: new_month_peak_warning
+        device_class: problem
+        state: >
+          {% set current = states('sensor.house_net_power') | float(0) %}
+          {% set peak = states('sensor.home_import_power_peak_31d') | float(0) %}
+          {{ current > peak }}
+        attributes:
+          current_power: "{{ states('sensor.house_net_power') | float(0) }}"
+          current_peak: "{{ states('sensor.home_import_power_peak_31d') | float(0) }}"
+
+# Utility meters voor dagelijks/maandelijks tracking          
+utility_meter:
+  energy_delivered_daily:
+    source: sensor.eth_dongle_pro_energy_delivered_t1
+    cycle: daily
+    
+  energy_delivered_monthly:
+    source: sensor.eth_dongle_pro_energy_delivered_t1
+    cycle: monthly

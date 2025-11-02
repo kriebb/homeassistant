@@ -1,0 +1,207 @@
+# Appliances - Slimme apparaat monitoring en automatisering
+# Simpel maar effectief - alleen relevante meldingen
+
+input_boolean:
+  # Automatische spreiding
+  smart_appliance_spreading:
+    name: Slimme apparaat spreiding
+    initial: true
+    icon: mdi:calendar-clock
+    
+  # Piek bescherming
+  peak_protection_active:
+    name: Piek bescherming actief
+    initial: true
+    icon: mdi:shield-check
+
+template:
+  - sensor:
+      # Apparaat status sensors
+      - name: "Vaatwasser Status"
+        unique_id: dishwasher_status
+        state: >
+          {% set power = states('sensor.vaatwas_power') | float(0) %}
+          {% if states('switch.vaatwas') == 'off' %}
+            Uit
+          {% elif power > 100 %}
+            Actief ({{ power | round(0) }}W)
+          {% elif power > 5 %}
+            Standby
+          {% else %}
+            Klaar
+          {% endif %}
+        icon: mdi:dishwasher
+        
+      - name: "Wasmachine Status"
+        unique_id: washing_machine_status  
+        state: >
+          {% set power = states('sensor.metered_wall_plug_switch_power') | float(0) %}
+          {% if states('switch.metered_wall_plug_switch') == 'off' %}
+            Uit
+          {% elif power > 100 %}
+            Actief ({{ power | round(0) }}W)
+          {% elif power > 5 %}
+            Standby
+          {% else %}
+            Klaar
+          {% endif %}
+        icon: mdi:washing-machine
+        
+      - name: "Droogkast Status"
+        unique_id: dryer_status
+        state: >
+          {% set power = states('sensor.droogkast_power') | float(0) %}
+          {% if states('switch.droogkast') == 'off' %}
+            Uit
+          {% elif power > 100 %}
+            Actief ({{ power | round(0) }}W)
+          {% elif power > 5 %}
+            Standby
+          {% else %}
+            Klaar
+          {% endif %}
+        icon: mdi:tumble-dryer
+        
+      # Totaal apparaten verbruik
+      - name: "Totaal Apparaten Verbruik"
+        unique_id: total_appliances_power
+        unit_of_measurement: W
+        device_class: power
+        state: >
+          {% set vaatwas = states('sensor.vaatwas_power') | float(0) %}
+          {% set wasmachine = states('sensor.metered_wall_plug_switch_power') | float(0) %}
+          {% set droogkast = states('sensor.droogkast_power') | float(0) %}
+          {% set waterker = states('sensor.waterker_power') | float(0) %}
+          {{ (vaatwas + wasmachine + droogkast + waterker) | round(0) }}
+          
+      # Kan apparaat starten check
+      - name: "Beschikbaar Voor Apparaten"
+        unique_id: available_for_appliances
+        unit_of_measurement: W
+        device_class: power
+        state: >
+          {% set available = states('sensor.available_capacity') | float(0) %}
+          {% if is_state('input_boolean.peak_protection_active', 'on') %}
+            {{ available }}
+          {% else %}
+            999999
+          {% endif %}
+        attributes:
+          can_start_dishwasher: "{{ states('sensor.available_capacity') | float(0) > 2200 }}"
+          can_start_washing_machine: "{{ states('sensor.available_capacity') | float(0) > 2400 }}"
+          can_start_dryer: "{{ states('sensor.available_capacity') | float(0) > 2800 }}"
+
+automation:
+  # Slimme spreiding - voorkom dat alles tegelijk start
+  - alias: "Apparaten Slimme Spreiding"
+    id: appliances_smart_spreading
+    mode: single
+    trigger:
+      - platform: state
+        entity_id:
+          - switch.vaatwas
+          - switch.metered_wall_plug_switch
+          - switch.droogkast
+        to: "on"
+    condition:
+      - condition: state
+        entity_id: input_boolean.smart_appliance_spreading
+        state: "on"
+      - condition: numeric_state
+        entity_id: sensor.house_net_power
+        above: 3500
+    action:
+      # Tel hoeveel apparaten aan staan
+      - variables:
+          active_count: >
+            {% set count = 0 %}
+            {% if states('sensor.vaatwas_power') | float(0) > 100 %}{% set count = count + 1 %}{% endif %}
+            {% if states('sensor.metered_wall_plug_switch_power') | float(0) > 100 %}{% set count = count + 1 %}{% endif %}
+            {% if states('sensor.droogkast_power') | float(0) > 100 %}{% set count = count + 1 %}{% endif %}
+            {{ count }}
+            
+      # Als meer dan 1 zwaar apparaat actief, uitstel nieuwste
+      - condition: template
+        value_template: "{{ active_count > 1 }}"
+      - service: switch.turn_off
+        target:
+          entity_id: "{{ trigger.entity_id }}"
+      - service: persistent_notification.create
+        data:
+          title: "⏸️ Apparaat Uitgesteld"
+          message: >
+            {{ trigger.entity_id | replace('switch.', '') | replace('_', ' ') | title }} uitgesteld.
+            Start automatisch wanneer er capaciteit is.
+          notification_id: appliance_delayed
+      - delay:
+          minutes: 15
+      - service: switch.turn_on
+        target:
+          entity_id: "{{ trigger.entity_id }}"
+          
+  # Notificatie bij onderbreking
+  - alias: "Apparaat Onderbroken Melding"
+    id: appliance_interrupted_notification
+    mode: parallel
+    trigger:
+      - platform: state
+        entity_id: switch.vaatwas
+        from: "on"
+        to: "off"
+        variables:
+          appliance_name: "Vaatwasser"
+          power_threshold: 100
+      - platform: state
+        entity_id: switch.metered_wall_plug_switch
+        from: "on"
+        to: "off"
+        variables:
+          appliance_name: "Wasmachine"
+          power_threshold: 100
+      - platform: state
+        entity_id: switch.droogkast
+        from: "on"
+        to: "off"
+        variables:
+          appliance_name: "Droogkast"
+          power_threshold: 100
+    condition:
+      # Alleen als apparaat actief was (niet standby)
+      - condition: template
+        value_template: >
+          {% set power_sensor = trigger.entity_id | replace('switch', 'sensor') + '_power' %}
+          {{ states(power_sensor) | float(0) > power_threshold }}
+    action:
+      - service: persistent_notification.create
+        data:
+          title: "⚠️ {{ appliance_name }} Onderbroken"
+          message: >
+            {{ appliance_name }} werd uitgeschakeld tijdens gebruik.
+            Vermogen was {{ states(trigger.entity_id | replace('switch', 'sensor') + '_power') | round(0) }}W.
+          notification_id: "{{ trigger.entity_id }}_interrupted"
+          
+  # Capaciteit waarschuwing voor grote verbruikers
+  - alias: "Apparaat Capaciteit Check"
+    id: appliance_capacity_check
+    trigger:
+      - platform: state
+        entity_id:
+          - switch.vaatwas
+          - switch.metered_wall_plug_switch
+          - switch.droogkast
+        to: "on"
+    condition:
+      - condition: state
+        entity_id: input_boolean.peak_protection_active
+        state: "on"
+      - condition: numeric_state
+        entity_id: sensor.available_for_appliances
+        below: 2000
+    action:
+      - service: persistent_notification.create
+        data:
+          title: "⚡ Capaciteit Waarschuwing"
+          message: >
+            Let op: Weinig capaciteit beschikbaar ({{ states('sensor.available_for_appliances') }}W).
+            Overweeg apparaten later te starten.
+          notification_id: capacity_warning
