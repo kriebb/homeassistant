@@ -216,9 +216,9 @@ template:
             {% endfor %}
             {{ tracker.missing }}
 
-automation:
-  # UITGESCHAKELD - Nieuwe versie in package 12 wordt gebruikt
-  # Onderstaande automation is gecommentarieerd om conflicten te voorkomen
+# UITGESCHAKELD - Nieuwe versie in package 12 wordt gebruikt
+# automation sectie volledig gecommentarieerd
+# automation:
   # - alias: "EV Load Balancer - Adjust Charging Amps"
   #   id: ev_load_balancer_adjust_charging_amps
   #   mode: restart
@@ -377,6 +377,8 @@ automation:
   #     - delay:
   #         seconds: 5
 
+  # Deze automation blijft behouden voor de force max functionaliteit
+automation:
   - alias: "EV Load Balancer - Force Max Override"
     id: ev_load_balancer_force_max_override
     mode: queued
