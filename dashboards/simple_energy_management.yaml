@@ -173,7 +173,7 @@ cards:
         secondary_info: >
           {% if states('input_boolean.wasmachine_blokkeer_piek') == 'on' %}
             Wacht op dal-tarief
-          {% elif states('switch.wasmachine') == 'on' %}
+          {% elif states('switch.metered_wall_plug_switch') == 'on' %}
             Actief
           {% else %}
             Uit
@@ -195,7 +195,7 @@ cards:
         secondary_info: >
           {% if states('input_boolean.vaatwasser_blokkeer_piek') == 'on' %}
             Wacht op dal-tarief
-          {% elif states('switch.vaatwasser') == 'on' %}
+          {% elif states('switch.vaatwas') == 'on' %}
             Actief
           {% else %}
             Uit
