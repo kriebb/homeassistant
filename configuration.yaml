@@ -21,7 +21,7 @@ lovelace:
   mode: storage
   dashboards:
     # Nieuwe moderne dashboards
-    capaciteitstarief:
+    capaciteit-starief:
       mode: yaml
       title: Capaciteitstarief
       icon: mdi:gauge

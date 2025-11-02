@@ -1,6 +1,14 @@
 # Capaciteitstarief België - Energie.be
 # Beheert maandpiek en optimaliseert verbruik binnen capaciteitsgrenzen
 
+# Input text voor stabiele tarief info
+input_text:
+  fluvius_tarief_type:
+    name: Fluvius Tarief Type
+    initial: "Variabel"
+    icon: mdi:file-document
+    max: 20
+
 input_number:
   capaciteitstarief_contract_kw:
     name: Contract capaciteit
@@ -136,11 +144,14 @@ template:
           
       - name: "Fluvius tarief"
         unique_id: fluvius_tarief
-        state: "Variabel"
+        state: "{{ states('input_text.fluvius_tarief_type') }}"
+        availability: >
+          {{ states('input_text.fluvius_tarief_type') not in ['unknown', 'unavailable', None] }}
         attributes:
           provider: "energie.be"
           has_day_night: false
           has_capacity_tariff: true
+          contract_end_date: "2025-11-02"
 
   - binary_sensor:
       - name: "Capaciteit bijna bereikt"

@@ -3,7 +3,7 @@
 
 views:
   - title: Capaciteitstarief
-    path: capaciteitstarief
+    path: capaciteit-starief
     icon: mdi:gauge
     cards:
       # Header met actuele status
