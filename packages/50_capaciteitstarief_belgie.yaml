@@ -1,0 +1,155 @@
+# Capaciteitstarief België - Energie.be
+# Beheert maandpiek en optimaliseert verbruik binnen capaciteitsgrenzen
+
+input_number:
+  capaciteitstarief_contract_kw:
+    name: Contract capaciteit
+    min: 2.5
+    max: 15
+    step: 0.5
+    initial: 5
+    unit_of_measurement: kW
+    icon: mdi:file-document
+    
+  capaciteitstarief_extra_marge_w:
+    name: Extra veiligheidsmarge
+    min: 0
+    max: 500
+    step: 50
+    initial: 200
+    unit_of_measurement: W
+    icon: mdi:shield-check
+
+template:
+  - sensor:
+      - name: "Capaciteitstarief status"
+        unique_id: capaciteit_status
+        state: >
+          {% set current_power = states('sensor.ev_house_power') | float(0) %}
+          {% set month_peak = states('sensor.home_import_power_peak_31d') | float(0) %}
+          {% set contract_w = states('input_number.capaciteitstarief_contract_kw') | float(5) * 1000 %}
+          {% set effective_limit = [month_peak, contract_w] | max %}
+          {% set percentage = (current_power / effective_limit * 100) | round(0) %}
+          
+          {% if percentage < 50 %}
+            Laag ({{ percentage }}%)
+          {% elif percentage < 80 %}
+            Normaal ({{ percentage }}%)
+          {% elif percentage < 95 %}
+            Hoog ({{ percentage }}%)
+          {% else %}
+            Kritiek ({{ percentage }}%)
+          {% endif %}
+        attributes:
+          current_power_w: "{{ states('sensor.ev_house_power') | float(0) }}"
+          month_peak_w: "{{ states('sensor.home_import_power_peak_31d') | float(0) }}"
+          contract_limit_w: "{{ states('input_number.capaciteitstarief_contract_kw') | float(5) * 1000 }}"
+          effective_limit_w: >
+            {% set month_peak = states('sensor.home_import_power_peak_31d') | float(0) %}
+            {% set contract_w = states('input_number.capaciteitstarief_contract_kw') | float(5) * 1000 %}
+            {{ [month_peak, contract_w] | max }}
+          available_capacity_w: >
+            {% set current_power = states('sensor.ev_house_power') | float(0) %}
+            {% set month_peak = states('sensor.home_import_power_peak_31d') | float(0) %}
+            {% set contract_w = states('input_number.capaciteitstarief_contract_kw') | float(5) * 1000 %}
+            {% set effective_limit = [month_peak, contract_w] | max %}
+            {% set margin = states('input_number.capaciteitstarief_extra_marge_w') | float(200) %}
+            {{ (effective_limit - current_power - margin) | round(0) }}
+          percentage_used: >
+            {% set current_power = states('sensor.ev_house_power') | float(0) %}
+            {% set month_peak = states('sensor.home_import_power_peak_31d') | float(0) %}
+            {% set contract_w = states('input_number.capaciteitstarief_contract_kw') | float(5) * 1000 %}
+            {% set effective_limit = [month_peak, contract_w] | max %}
+            {{ (current_power / effective_limit * 100) | round(1) }}
+            
+      - name: "Fluvius capaciteit limiet"
+        unique_id: fluvius_capacity_limit  
+        state: >
+          {% set month_peak = states('sensor.home_import_power_peak_31d') | float(0) %}
+          {% set contract_w = states('input_number.capaciteitstarief_contract_kw') | float(5) * 1000 %}
+          {{ [month_peak, contract_w] | max | round(0) }}
+        unit_of_measurement: W
+        availability: >
+          {{ states('sensor.home_import_power_peak_31d') not in ['unknown', 'unavailable', None] }}
+          
+      - name: "Beschikbaar vermogen"
+        unique_id: beschikbaar_vermogen
+        state: "{{ states('sensor.available_capacity') }}"
+        unit_of_measurement: W
+        attributes:
+          source: "sensor.available_capacity"
+          
+      - name: "Totaal slimme apparaten verbruik"
+        unique_id: totaal_slimme_apparaten_verbruik
+        state: >
+          {% set vaatwas = states('sensor.vaatwas_power') | float(0) %}
+          {% set wasmachine = states('sensor.metered_wall_plug_switch_power') | float(0) %}
+          {% set droogkast = states('sensor.droogkast_power') | float(0) %}
+          {% set boiler = states('sensor.waterker_power') | float(0) %}
+          {{ (vaatwas + wasmachine + droogkast + boiler) | round(0) }}
+        unit_of_measurement: W
+        availability: >
+          {{ states('sensor.vaatwas_power') not in ['unknown', 'unavailable', None] and
+             states('sensor.metered_wall_plug_switch_power') not in ['unknown', 'unavailable', None] and
+             states('sensor.droogkast_power') not in ['unknown', 'unavailable', None] }}
+             
+      - name: "Kan vaatwasser starten"
+        unique_id: kan_vaatwasser_starten
+        state: >
+          {% set available = state_attr('sensor.capaciteit_status', 'available_capacity_w') | float(0) %}
+          {% set vaatwasser_max = 2200 %}
+          {{ available > vaatwasser_max }}
+          
+      - name: "Fluvius tarief"
+        unique_id: fluvius_tarief
+        state: "Variabel"
+        attributes:
+          provider: "energie.be"
+          has_day_night: false
+          has_capacity_tariff: true
+
+  - binary_sensor:
+      - name: "Capaciteit bijna bereikt"
+        unique_id: capacity_almost_reached
+        state: >
+          {% set percentage = state_attr('sensor.capaciteit_status', 'percentage_used') | float(0) %}
+          {{ percentage >= 90 }}
+        attributes:
+          percentage: "{{ state_attr('sensor.capaciteit_status', 'percentage_used') }}"
+          
+      - name: "Nieuwe maandpiek waarschuwing"
+        unique_id: new_month_peak_warning
+        state: >
+          {% set current = states('sensor.ev_house_power') | float(0) %}
+          {% set peak = states('sensor.home_import_power_peak_31d') | float(0) %}
+          {{ current > peak }}
+
+automation:
+  - alias: "Capaciteitstarief: Waarschuwing bij nieuwe piek"
+    id: capacity_tariff_peak_warning
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.new_month_peak_warning
+        to: "on"
+        for:
+          seconds: 10
+    action:
+      - service: persistent_notification.create
+        data:
+          title: "⚠️ Nieuwe maandpiek!"
+          message: >
+            Je bent een nieuwe maandpiek aan het zetten!
+            Huidige verbruik: {{ states('sensor.ev_house_power') | round(0) }} W
+            Vorige piek: {{ states('sensor.home_import_power_peak_31d') | round(0) }} W
+          notification_id: new_month_peak
+          
+  - alias: "Capaciteitstarief: Clear piek waarschuwing"
+    id: capacity_tariff_clear_peak_warning
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.new_month_peak_warning
+        to: "off"
+    action:
+      - service: persistent_notification.dismiss
+        data:
+          notification_id: new_month_peak

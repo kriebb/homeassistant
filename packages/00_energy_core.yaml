@@ -17,7 +17,7 @@ template:
           {{ states('input_number.ev_main_limit_w') not in ['unknown', 'unavailable', None] and
              states('sensor.home_import_power_peak_31d') not in ['unknown', 'unavailable', None] }}
         state: >
-          {% set contract_limit = states('input_number.ev_main_limit_w') | float(4000) %}
+          {% set contract_limit = states('input_number.ev_main_limit_w') | float(4362) %}
           {% set monthly_peak = states('sensor.home_import_power_peak_31d') | float(0) %}
           {% if monthly_peak > contract_limit %}
             {{ monthly_peak | round(0) }}

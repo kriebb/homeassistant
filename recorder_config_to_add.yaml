@@ -1,0 +1,68 @@
+# ADD THIS TO YOUR configuration.yaml FILE
+# This optimizes the recorder to reduce database size
+
+recorder:
+  # Increase commit interval to reduce disk I/O (default is 5)
+  commit_interval: 30
+  
+  # Keep only 7 days of history instead of default 10
+  purge_keep_days: 7
+  
+  # Enable auto purge and repack
+  auto_purge: true
+  auto_repack: true
+  
+  # Exclude high-frequency updates and unnecessary data
+  exclude:
+    domains:
+      # System domains that change frequently but aren't needed in history
+      - automation
+      - updater
+      - camera
+      - media_player
+      - weather
+      - sun
+      - script
+      - group
+      - zone
+      
+    entity_globs:
+      # Exclude frequently updating sensors that aren't critical
+      - sensor.*_linkquality
+      - sensor.*_last_seen
+      - sensor.*_rssi
+      - sensor.*_signal_strength
+      - sensor.*uptime*
+      - sensor.*time*
+      - sensor.*date*
+      - sensor.time_*
+      - sensor.date_*
+      - sensor.*_cpu_*
+      - sensor.*_memory_*
+      - sensor.*_disk_*
+      - sensor.*_temperature  # System temps, not room temps
+      - sensor.*_battery_temperature
+      - binary_sensor.*_update_available
+      - sensor.*_newest_version
+      - sensor.*_last_restart
+      
+    entities:
+      # Specific entities that update too frequently
+      - sensor.time
+      - sensor.date
+      - sensor.time_date
+      - sensor.uptime
+      - sensor.last_boot
+      
+    event_types:
+      # Events that aren't needed in history
+      - service_registered
+      - service_removed
+      - component_loaded
+      - platform_discovered
+      - homeassistant_start
+      - homeassistant_stop
+      - feedreader
+      - service_executed
+      - timer_out_of_sync
+      - time_changed

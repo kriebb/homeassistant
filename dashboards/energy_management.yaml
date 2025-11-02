@@ -63,7 +63,7 @@ views:
               - type: custom:mushroom-chips-card
                 chips:
                   - type: entity
-                    entity: sensor.beschikbaar_vermogen
+                    entity: sensor.available_capacity
                     icon: mdi:flash-outline
                     content: state
                   - type: entity
@@ -229,7 +229,7 @@ views:
                 card:
                   type: custom:mushroom-template-card
                   primary: Onvoldoende capaciteit
-                  secondary: "Beschikbaar: {{ states('sensor.beschikbaar_vermogen') }}W / Nodig: {{ states('input_number.dishwasher_power_usage') }}W"
+                  secondary: "Beschikbaar: {{ states('sensor.available_capacity') }}W / Nodig: {{ states('input_number.dishwasher_power_usage') }}W"
                   icon: mdi:alert
                   icon_color: red
 
@@ -451,39 +451,4 @@ views:
               - entity: input_boolean.dryer_auto_mode
                 name: Droogkast
 
-# Supporting scripts for the dashboard
-script:
-  toggle_all_auto_modes:
-    alias: Toggle alle auto modes
-    sequence:
-      - choose:
-          - conditions:
-              - condition: template
-                value_template: >
-                  {{ states.input_boolean | selectattr('entity_id', 'match', '.*_auto_mode') | selectattr('state', 'eq', 'on') | list | count == 3 }}
-            sequence:
-              - service: input_boolean.turn_off
-                target:
-                  entity_id:
-                    - input_boolean.dishwasher_auto_mode
-                    - input_boolean.washing_machine_auto_mode
-                    - input_boolean.dryer_auto_mode
-        default:
-          - service: input_boolean.turn_on
-            target:
-              entity_id:
-                - input_boolean.dishwasher_auto_mode
-                - input_boolean.washing_machine_auto_mode
-                - input_boolean.dryer_auto_mode
-
-# Template sensor for daily cost (add to energy_management package)
-template:
-  - sensor:
-      - name: "Daily Energy Cost"
-        unique_id: daily_energy_cost
-        unit_of_measurement: "€"
-        state: >
-          {% set consumption = states('sensor.daily_energy_consumption') | float(0) %}
-          {% set price = states('sensor.wallbox_kristof_riebbels_energieprijs') | float(0.30) %}
-          {{ (consumption * price) | round(2) }}
-        icon: mdi:currency-eur
+# Scripts and templates have been moved to packages/60_dashboard_missing_sensors.yaml
