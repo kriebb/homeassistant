@@ -24,8 +24,8 @@ template:
         unit_of_measurement: W
         device_class: power
         attributes:
-          current_month_peak: "{{ states('sensor.home_import_power_peak_31d') | round(0) }} W"
-          current_usage: "{{ states('sensor.ev_house_power') | round(0) }} W"
+          current_month_peak: "{{ states('sensor.home_import_power_peak_31d') | float(0) | round(0) }} W"
+          current_usage: "{{ states('sensor.ev_house_power') | float(0) | round(0) }} W"
           will_set_new_peak: "{{ states('sensor.ev_house_power') | float(0) > states('sensor.home_import_power_peak_31d') | float(0) }}"
           
       # Capaciteit ruimte tot volgende drempel
@@ -35,7 +35,7 @@ template:
           {% set current_peak = states('sensor.home_import_power_peak_31d') | float(0) / 1000 %}
           {% set next_kw = (current_peak | int) + 1 %}
           {% set headroom = (next_kw - current_peak) * 1000 %}
-          {{ headroom | round(0) }}
+          {{ headroom | float(0) | round(0) }}
         unit_of_measurement: W
         attributes:
           current_peak_kw: "{{ (states('sensor.home_import_power_peak_31d') | float(0) / 1000) | round(2) }} kW"
@@ -65,21 +65,21 @@ template:
         state: >
           {{ states('sensor.ev_house_power') | float(0) > 5000 }}
         attributes:
-          current_power: "{{ states('sensor.ev_house_power') | round(0) }} W"
+          current_power: "{{ states('sensor.ev_house_power') | float(0) | round(0) }} W"
           
       - name: "Capaciteit boven 6 kW"
         unique_id: capacity_above_6kw
         state: >
           {{ states('sensor.ev_house_power') | float(0) > 6000 }}
         attributes:
-          current_power: "{{ states('sensor.ev_house_power') | round(0) }} W"
+          current_power: "{{ states('sensor.ev_house_power') | float(0) | round(0) }} W"
           
       - name: "Capaciteit boven 7 kW"
         unique_id: capacity_above_7kw
         state: >
           {{ states('sensor.ev_house_power') | float(0) > 7000 }}
         attributes:
-          current_power: "{{ states('sensor.ev_house_power') | round(0) }} W"
+          current_power: "{{ states('sensor.ev_house_power') | float(0) | round(0) }} W"
           
       # Kwartier bijna voorbij waarschuwing
       - name: "Hoog verbruik laatste 5 min kwartier"

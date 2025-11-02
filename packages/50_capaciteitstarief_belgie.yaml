@@ -67,7 +67,7 @@ template:
           {% set month_peak = states('sensor.home_import_power_peak_31d') | float(0) %}
           {% set contract_w = states('input_number.capaciteitstarief_contract_kw') | float(5) * 1000 %}
           {% set effective_limit = [month_peak, contract_w] | max %}
-          {% set percentage = (current_power / effective_limit * 100) | round(0) %}
+          {% set percentage = (current_power / effective_limit * 100) | float(0) | round(0) %}
           
           {% if percentage < 50 %}
             Laag ({{ percentage }}%)
@@ -114,8 +114,8 @@ template:
           info: "Gebruikt hoogste van: maandpiek, contract, of 2.5kW minimum"
           minimum_bijdrage_w: "{{ states('input_number.capaciteitstarief_minimum_bijdrage_kw') | float(2.5) * 1000 }}"
           
-      - name: "Beschikbaar vermogen"
-        unique_id: beschikbaar_vermogen
+      - name: "Beschikbaar vermogen (capaciteit)"
+        unique_id: beschikbaar_vermogen_capaciteit
         state: "{{ states('sensor.available_capacity') }}"
         unit_of_measurement: W
         attributes:
@@ -184,8 +184,8 @@ automation:
           title: "⚠️ Nieuwe maandpiek!"
           message: >
             Je bent een nieuwe maandpiek aan het zetten!
-            Huidige verbruik: {{ states('sensor.ev_house_power') | round(0) }} W
-            Vorige piek: {{ states('sensor.home_import_power_peak_31d') | round(0) }} W
+            Huidige verbruik: {{ states('sensor.ev_house_power') | float(0) | round(0) }} W
+            Vorige piek: {{ states('sensor.home_import_power_peak_31d') | float(0) | round(0) }} W
           notification_id: new_month_peak
           
   - alias: "Capaciteitstarief: Clear piek waarschuwing"

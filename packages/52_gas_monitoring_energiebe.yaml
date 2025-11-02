@@ -52,7 +52,7 @@ template:
           {% set factor = states('input_number.gas_conversie_factor') | float(11.25) %}
           {{ (m3 * factor) | round(2) }}
         unit_of_measurement: "kWh"
-        device_class: gas
+        device_class: energy
         state_class: total_increasing
         availability: >
           {{ states('sensor.eth_dongle_pro_gas_delivered') not in ['unknown', 'unavailable', None] }}
@@ -65,7 +65,7 @@ template:
           {% set factor = states('input_number.gas_conversie_factor') | float(11.25) %}
           {{ (gas_today_m3 * factor) | round(2) }}
         unit_of_measurement: "kWh"
-        device_class: gas
+        device_class: energy
         attributes:
           m3_today: "{{ states('sensor.eth_dongle_pro_gas_delivered_daily') | float(0) | round(3) }}"
           
@@ -162,9 +162,9 @@ automation:
         data:
           title: "Gas Verbruik Vandaag"
           message: >
-            Verbruik: {{ states('sensor.gas_verbruik_vandaag') | round(1) }} kWh
-            Kosten: €{{ states('sensor.gas_kosten_vandaag') | round(2) }}
-            Geschatte maandkosten: €{{ states('sensor.gas_kosten_schatting_deze_maand') | round(2) }}
+            Verbruik: {{ states('sensor.gas_verbruik_vandaag') | float(0) | round(1) }} kWh
+            Kosten: €{{ states('sensor.gas_kosten_vandaag') | float(0) | round(2) }}
+            Geschatte maandkosten: €{{ states('sensor.gas_kosten_schatting_deze_maand') | float(0) | round(2) }}
           notification_id: gas_daily_summary
           
 # Scripts voor gas analyse

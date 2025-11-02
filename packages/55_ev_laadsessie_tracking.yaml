@@ -137,9 +137,9 @@ automation:
         data:
           title: "✅ EV Laadsessie Voltooid"
           message: >
-            Duur: {{ states('sensor.ev_laadsessie_duur') | round(1) }} uur
-            Energie: {{ states('sensor.ev_laadsessie_kwh_schatting') | round(2) }} kWh
-            Kosten: €{{ states('sensor.ev_laadsessie_kosten') | round(2) }}
+            Duur: {{ states('sensor.ev_laadsessie_duur') | float(0) | round(1) }} uur
+            Energie: {{ states('sensor.ev_laadsessie_kwh_schatting') | float(0) | round(2) }} kWh
+            Kosten: €{{ states('sensor.ev_laadsessie_kosten') | float(0) | round(2) }}
           notification_id: ev_session_completed
 
 # Utility meter voor maandelijkse EV tracking

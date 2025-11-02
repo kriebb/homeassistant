@@ -68,7 +68,7 @@ template:
           
           {% if current_peak > optimal_peak %}
             {% set potential_savings = (current_peak - optimal_peak) * savings_per_kw %}
-            € {{ potential_savings | round(2) }}/maand mogelijk
+            € {{ potential_savings | float(0) | round(2) }}/maand mogelijk
           {% else %}
             Goed geoptimaliseerd
           {% endif %}
